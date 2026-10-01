@@ -29,6 +29,7 @@ from .crop import cover_crop
 from .style import PATTERNS
 
 MAX_WORDS_ON_PHOTO = 15
+MAX_FOCUS_COVER = 0.25  # a bleed panel / text band may cover at most this share of the image focus
 _BODY_H = 1.2          # room reserved for a short body line over a bleed-scrim
 MIN_SCRIM = 0.35      # spec 2: a scrim reads as intentional from 0.35 up; more alpha never lowers contrast
 _PAD = 0.3             # scrim padding around the text box
@@ -104,6 +105,50 @@ def _per_image(value, n, name):
     return list(value)
 
 
+def _other(side):
+    return "right" if side == "left" else "left"
+
+
+def _focus_cover(d, path, focus, must_keep, box):
+    """Share (0..1) of the visible image focus that `box` (x, y, w, h in slide inches) covers, mapping the focus
+    through the actual cover crop. 0 without a focus (or when the crop cannot be made)."""
+    if not focus:
+        return 0.0
+    with Image.open(path) as im:
+        crop = cover_crop(im.width, im.height, d.W, d.H, focus, must_keep)
+    if crop is None:
+        return 0.0
+    l, t, r, b = crop
+    sx, sy = d.W / (1 - l - r), d.H / (1 - t - b)
+    fx0, fx1 = ((focus[i] - l) * sx for i in (0, 2))
+    fy0, fy1 = ((focus[i] - t) * sy for i in (1, 3))
+    fx0, fx1, fy0, fy1 = max(fx0, 0), min(fx1, d.W), max(fy0, 0), min(fy1, d.H)
+    area = max(fx1 - fx0, 0) * max(fy1 - fy0, 0)
+    if area <= 0:
+        return 0.0
+    x, y, w, h = box
+    overlap = max(min(fx1, x + w) - max(fx0, x), 0) * max(min(fy1, y + h) - max(fy0, y), 0)
+    return overlap / area
+
+
+def _warn_covers(d, path, what):
+    d._warn(f"{Path(path).name}: the {what} covers the image focus; use split or pass a focus that sits clear of the text side.")
+
+
+def _panel_box(d, side, cols):
+    """The opaque panel: full height, from the text-side slide edge to one column past the text columns."""
+    if side == "left":
+        return (0, 0, sum(d.col(cols, 1)), d.H)
+    edge = d.col(11 - cols, 1)[0]
+    return (edge, 0, d.W - edge, d.H)
+
+
+def _band_box(d, side):
+    """The scrim band: full height, from the text-side slide edge to the 7 text columns' far edge plus padding."""
+    x, w = d.col(0 if side == "left" else 5, 7)
+    return (0, 0, x + w + _PAD, d.H) if side == "left" else (x - _PAD, 0, d.W - (x - _PAD), d.H)
+
+
 def _finish(d, slide, box, text_color="ink"):
     d.text_color = text_color
     return slide, box
@@ -113,31 +158,46 @@ def bleed_panel(d, title, path, *, focus=None, must_keep=None, side=None, cols=5
     """words is accepted for interchangeability and ignored: the opaque panel always holds the text.
     role: title role (use "head" for a cover); the title box grows to fit 3 lines of it."""
     _allow(d, "bleed-panel")
+    explicit = side is not None
     side = _side(side, focus)
     if not 2 <= cols <= 8:
         raise ValueError(f"cols must be from 2 to 8 (got: {cols})")
+    side, cols = _clear_panel(d, path, focus, must_keep, side, cols, explicit)
     start = 0 if side == "left" else 12 - cols
     x, w = d.col(start, cols)
     _, ty, _, th = _title_box(d, x, w, role, 3)
     th = max(th, _title_y(d)[1] * 1.5)  # a narrow panel wraps the title onto more lines
     s = d.slide(title, box=(x, ty, w, th), role=role)
     pic = d.background(s, path, focus=focus, must_keep=must_keep, pattern="bleed-panel")
-    if side == "left":
-        edge = sum(d.col(cols, 1))                  # the panel reaches one column past the text
-        panel_box = (0, 0, edge, d.H)
-    else:
-        edge = d.col(11 - cols, 1)[0]
-        panel_box = (edge, 0, d.W - edge, d.H)
-    panel = d._tag(d.rect(s, panel_box, "bg"), "panel")
+    panel = d._tag(d.rect(s, _panel_box(d, side, cols), "bg"), "panel")
     _stack(d, s, [pic, panel])
     top = ty + th + 0.3
     return _finish(d, s, (x, top, w, d.content_bottom - top))
 
 
+def _clear_panel(d, path, focus, must_keep, side, cols, explicit):
+    """(side, cols) whose panel covers at most MAX_FOCUS_COVER of the focus: first the other side (unless the caller
+    passed side), then fewer columns down to 4. Otherwise warn and keep the request."""
+    sides = [side] if explicit else [side, _other(side)]
+    for c in range(cols, min(cols, 4) - 1, -1):
+        for sd in sides:
+            if _focus_cover(d, path, focus, must_keep, _panel_box(d, sd, c)) <= MAX_FOCUS_COVER:
+                return sd, c
+    _warn_covers(d, path, "panel")
+    return side, cols
+
+
 def bleed_scrim(d, title, path, *, focus=None, must_keep=None, side=None, words=0, role="title"):
     """role: title role (use "head" for a cover); legibility is planned at that size (at body size when words > 0)."""
     _allow(d, "bleed-scrim")
+    explicit = side is not None
     side = _side(side, focus)
+    for sd in [side] if explicit else [side, _other(side)]:
+        if _focus_cover(d, path, focus, must_keep, _band_box(d, sd)) <= MAX_FOCUS_COVER:
+            side = sd
+            break
+    else:
+        _warn_covers(d, path, "text band")
     x, w = d.col(0 if side == "left" else 5, 7)
     _, ty, _, th = tbox = _title_box(d, x, w, role, 2)
     body = (x, ty + th + 0.3, w, _BODY_H) if words else None
@@ -163,9 +223,7 @@ def _scrim_slide(d, title, path, plan, body, title_box, focus, must_keep, side, 
     pic = d.background(s, path, focus=focus, must_keep=must_keep, pattern="bleed-scrim")
     layers = [pic]
     if plan["alpha"]:
-        edge = x + w + _PAD if side == "left" else x - _PAD  # far edge of the band, from the text-side slide edge
-        sbox = (0, 0, edge, d.H) if side == "left" else (edge, 0, d.W - edge, d.H)
-        layers.append(d.scrim(s, sbox, color="ink" if plan["text"] == "bg" else "bg", alpha=max(plan["alpha"], MIN_SCRIM)))
+        layers.append(d.scrim(s, _band_box(d, side), color="ink" if plan["text"] == "bg" else "bg", alpha=max(plan["alpha"], MIN_SCRIM)))
     _stack(d, s, layers)
     return _finish(d, s, body, plan["text"])
 

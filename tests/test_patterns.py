@@ -568,3 +568,73 @@ def test_bleed_scrim_plans_legibility_at_the_role_size(d, tmp_path, monkeypatch)
 def test_unknown_role_raises(d, tmp_path):
     with pytest.raises(ValueError, match="role"):
         d.pattern("bleed-panel", "x", _photo(tmp_path), role="huge")
+
+
+# ---- bleed patterns keep clear of the image focus ----
+from deckkit import patterns as P  # noqa: E402
+
+LEFT_FOCUS = (0.0, 0.2, 0.3, 0.8)
+
+
+def _wrong_default_side(monkeypatch):
+    """Force the default text side onto the focus, to exercise the other-side retry."""
+    monkeypatch.setattr(P, "_side", lambda side, focus: side or "left")
+
+
+def test_focus_cover_maps_focus_through_the_actual_crop(d, tmp_path):
+    img = _photo(tmp_path, size=(3000, 1000))  # 16:9 window is 1778px wide, centred
+    box = (0, 0, d.W / 2, d.H)
+    full = (0.0, 0.0, 1.0, 1.0)
+    assert P._focus_cover(d, img, None, None, box) == 0.0
+    assert P._focus_cover(d, img, full, None, box) == pytest.approx(0.5, abs=0.01)
+    edge = (0.0, 0.0, 0.1, 1.0)  # the crop window starts at the focus: it sits in the left 2.2in
+    assert P._focus_cover(d, img, edge, None, box) == 1.0
+    assert P._focus_cover(d, img, edge, None, (d.W / 2, 0, d.W / 2, d.H)) == 0.0
+    assert P._focus_cover(d, img, (0.45, 0.2, 0.55, 0.8), None, box) == pytest.approx(0.5, abs=0.01)
+
+
+def test_bleed_panel_tries_the_other_side_when_the_panel_covers_the_focus(d, tmp_path, monkeypatch):
+    _wrong_default_side(monkeypatch)
+    s, box = d.pattern("bleed-panel", "T", _photo(tmp_path), focus=LEFT_FOCUS)
+    panel = next(sh for sh in s.shapes if sh.name == "pc:panel")
+    assert panel.left > 0 and box[0] > d.W / 2  # text and panel moved to the right
+    assert not any("covers the image focus" in w for w in d.warnings)
+
+
+def test_bleed_panel_explicit_side_is_kept_and_warns(d, tmp_path):
+    s, box = d.pattern("bleed-panel", "T", _photo(tmp_path), focus=LEFT_FOCUS, side="left")
+    panel = next(sh for sh in s.shapes if sh.name == "pc:panel")
+    assert panel.left == 0 and (box[0], box[2]) == pytest.approx(d.col(0, 5))
+    assert any("p.jpg: the panel covers the image focus; use split or pass a focus that sits clear of the text side" in w
+               for w in d.warnings)
+
+
+def test_bleed_panel_uses_fewer_columns_when_both_sides_cover_the_focus(d, tmp_path):
+    s, box = d.pattern("bleed-panel", "T", _photo(tmp_path), focus=(0.4, 0.2, 0.6, 0.8))
+    assert (box[0], box[2]) == pytest.approx(d.col(0, 4))
+    assert next(sh for sh in s.shapes if sh.name == "pc:panel").left == 0
+    assert not any("covers the image focus" in w for w in d.warnings)
+
+
+def test_bleed_panel_without_focus_is_unchanged(d, tmp_path):
+    s, box = d.pattern("bleed-panel", "T", _photo(tmp_path))
+    assert (box[0], box[2]) == pytest.approx(d.col(0, 5)) and not d.warnings
+
+
+def test_bleed_scrim_tries_the_other_side_when_the_band_covers_the_focus(d, tmp_path, monkeypatch):
+    _wrong_default_side(monkeypatch)
+    s, _ = d.pattern("bleed-scrim", "T", _two_tone(tmp_path), focus=LEFT_FOCUS)
+    scrim = next(sh for sh in s.shapes if sh.name == "pc:scrim")
+    assert scrim.left > 0 and not any("covers the image focus" in w for w in d.warnings)
+
+
+def test_bleed_scrim_explicit_side_is_kept_and_warns(d, tmp_path):
+    s, _ = d.pattern("bleed-scrim", "T", _two_tone(tmp_path), focus=LEFT_FOCUS, side="left")
+    scrim = next(sh for sh in s.shapes if sh.name == "pc:scrim")
+    assert scrim.left == 0
+    assert any("n.png: the text band covers the image focus" in w for w in d.warnings)
+
+
+def test_bleed_scrim_without_focus_is_unchanged(d, tmp_path):
+    s, _ = d.pattern("bleed-scrim", "T", _two_tone(tmp_path))
+    assert not any("focus" in w for w in d.warnings)
