@@ -83,7 +83,7 @@ Reference paths:
 ```
 sample.json rules (same as sample_deck.py):
 - **Required:** `title`, `claim`, `points` (a string or a list of strings; an error if empty), `chart{title, categories, series}`
-- **Optional:** `subtitle`, `meta`, `governing`, `number`, `figure`, `source`, `image`, `image_focus`, `chart.source/takeaway/highlight/kind/caption/n`
+- **Optional:** `subtitle`, `meta`, `governing`, `number`, `figure`, `source`, `image`, `image_focus`, `image_caption`, `chart.source/takeaway/highlight/kind/caption/n`
 - `number` is given as a string like `"410ms"` or as `{value, label}`.
 - `figure{categories, series, caption, kind, highlight, source, n}`: for `layout: figure`, which uses a figure in the body.
 - If the style's `layout` is `statement` but there is no `number`, or it is `figure` but there is no `figure`, the sample falls back to the split body and prints a warning. To test the candidate's layout, fill in that key.
@@ -91,6 +91,7 @@ sample.json rules (same as sample_deck.py):
 - If there is no source, leave `source` empty. sample_deck prints "[source needed]" ("[출처 필요]" in Korean decks).
 - If the title and claim contain no Hangul, the sample is built as an English deck (Figure/Source labels).
 - To test an image cover, add `"image"` (a path relative to sample.json, or absolute) and `"image_focus"` ([x0, y0, x1, y1], 0-1).
+- With `image`, the sample also gets an image slide after the content slide, in the first pattern `suggest()` allows for the style (none if only `type-only` fits). `image_caption` is its provenance line (source, date, place); without it the slide shows "[source needed]".
 
 ### Render
 For each candidate (B and C the same way), build the sample and render it.
@@ -143,6 +144,22 @@ Change only when the user wants: fine color tuning, cover type (type/band/image)
 Ask whether a logo and footer are needed. The event name and page number in the footer are included by default.
 If there is a logo file, add its path to the `Images:` line of `W/brief.md` with `(logo)` appended.
 
+### 4) Imagery (only when the brief has photos or the user wants them)
+1. Pick one representative photo: the user's photo first, otherwise one found with `photo search` or `gen` (deck-build flow, same network consent). Look at it with Read and note its focus [x0, y0, x1, y1] (0-1).
+2. Render the comparison with the current style (it ignores `imagery.patterns`, because it is what they are chosen from):
+   ```
+   python "${CLAUDE_PLUGIN_ROOT}/scripts/imagefx.py" compare "<photo>" --style "<current style.json>" --out "W/candidates/imagery" --focus x0 y0 x1 y1
+   ```
+   - Row "treat": the same bleed-panel slide with no treatment, harmonize, gray, duotone. With a near-black ink on white, duotone looks like gray.
+   - Row "pattern": bleed-panel, bleed-scrim, split.
+   - Exit code 2 means no renderer: relay the install instructions. A `using bleed-panel` warning means the photo has no quiet side for a scrim; say so.
+3. Look at `compare.png` with Read yourself, then show it to the user the same way as the candidates.
+4. Record the choice in `imagery`:
+   - `treatment`: `none`, `gray` or `duotone` (harmonize is a separate switch, on by default).
+   - `patterns`: the allowed patterns. Keep the bleed patterns only if the user liked them, and keep `type-only`. `figure`, `annotated`, `inset`, `strip` and `gallery` need no comparison; keep those the content needs.
+   - `max_bleed`: lower it (1 or 0) if the user wants few full-bleed slides.
+5. Textures only if the user asks: `python "${CLAUDE_PLUGIN_ROOT}/scripts/imagefx.py" texture --kind paper|grain|dots|grid --opacity 0.06 --style "<style.json>" --out "W/candidates/imagery/texture.png"`, shown on one rendered slide. If chosen, record `"texture": {"kind": "...", "opacity": 0.06}` (0.1 at most, one cover or section slide, C13).
+
 ## 4. Finalize
 - Save `W/style.json`. Record the origin (preset or reference) in the `source` field.
   - Before saving, check that each font family is in the `fonts.py list` output. If not, ask the user.
@@ -167,6 +184,8 @@ If there is a logo file, add its path to the `Images:` line of `W/brief.md` with
   "layout": "split | statement | figure",
   "motifs": ["Motifs to keep to the end of the deck"],
   "avoid": ["Rule IDs to be especially careful about in this style"],
+  "imagery": {"patterns": ["bleed-panel", "bleed-scrim", "split", "inset", "strip", "gallery", "figure", "annotated", "type-only"],
+              "treatment": "none | gray | duotone", "harmonize": true, "texture": null, "max_bleed": 3},
   "source": "preset:<name> | ref:<file/URL>"
 }
 ```
@@ -175,5 +194,6 @@ If there is a logo file, add its path to the `Images:` line of `W/brief.md` with
   - `statement`: one sentence or one very big number
   - `figure`: centered on a figure and caption (Figure N.)
 - If `font.mono` is omitted, the body font is used.
+- If `imagery` is omitted, every pattern is allowed with no treatment, harmonize on, no texture and `max_bleed` 3. Presets set their own `imagery`.
 - If `canvas.title_box` [x, y, w, h] is omitted, it becomes [margin, 0.4, width − 2·margin, 1.1].
 - The contrast between bg and ink must be WCAG AA or better. accent must be dark enough to read as text on bg.

@@ -37,7 +37,7 @@ How to get the user's confirmation:
 - If you got an outline, follow the outline. If you polished a title into a claim sentence, say that you did.
 
 ### 1-2. Per-slide detail (table)
-| # | Title (claim) | Governing message (when governing) | Supporting content | Visualization type | Assets | Speaker notes | Figure source (shown on the slide as a caption line) |
+| # | Title (claim) | Governing message (when governing) | Supporting content | Visualization type | Assets | Placement (pattern + reason) | Speaker notes | Figure source (shown on the slide as a caption line) |
 
 Pick the visualization type from: one sentence / big number / chart / comparison table / 2×2 / process / full-bleed image / quote / diagram / annotated screenshot
 
@@ -47,6 +47,7 @@ Pick the visualization type from: one sentence / big number / chart / comparison
 - Take figures only from the brief's materials. If there are none, leave `[source needed]` (`[출처 필요]` in Korean decks) (D3). Never invent figures.
 - If the brief has `lack of factual material`, do not make up facts to satisfy H1. A one-sentence slide leans on the fact in its title, and a slide with no facts to put in is merged or dropped.
 - Mix slides of different density (H6). Do not put an image on every slide (H7).
+- Placement: one pattern per slide from `style.json` `imagery.patterns` (`type-only` is always allowed), with a short reason. See "Placement" below.
 - The `layout` in style.json is the **default starting point** when designing body slides. You may change it per slide to fit the content.
   - `split`: evidence list and a big number side by side
   - `statement`: one sentence or one very big number
@@ -67,6 +68,14 @@ Pick the visualization type from: one sentence / big number / chart / comparison
    - Diagrams: `fit="contain"`
    - Logos: files listed on the brief's `Images:` line with `(logo)` after the path. Set `type` to `logo` and put it in the **same position** on every body slide (a spot that does not overlap title, body, or footer text) with `fit="contain"`. It need not appear on the cover.
    - Screenshots: mark what to point at with `callout` (H3).
+4. Treat the photos once per deck, after their images.json entries (focus especially) are filled. Only `type: photo`; never screenshots, diagrams or logos.
+   - `imagery.treatment` is `gray` or `duotone`: `--mode <treatment>`.
+   - `treatment` is `none` and `harmonize` is true: `--mode harmonize`.
+   - Both off: skip this step.
+   ```
+   python "${CLAUDE_PLUGIN_ROOT}/scripts/imagefx.py" treat "W/assets/<photo>" ["W/assets/<photo>" ...] --mode <mode> --style "W/style.json" --out "W/assets/treated"
+   ```
+   build.py then uses `assets/treated/<stem>-<mode>.jpg` (`.png` for images with transparency). The treatment does not change geometry, so the focus and must_keep values from images.json still apply. Every photo in the deck gets the same mode (I12). Treat photos taken later with `photo get` the same way.
 
 ### Free photos, generated images, icons
 Priority: the user's images first; then, as equals (the user's decision), `photo search` or `gen`; otherwise no image and a layout without one. Use an image only when it is evidence (H2, I8). Needs the network consent from /deck. Run commands one at a time.
@@ -114,6 +123,23 @@ Delete nothing here: /deck's wrap-up removes `assets/_cand/`.
 
 ## 3. Write and run W/build.py
 
+### Placement (image slides)
+Decide each slide's pattern with `deckkit.patterns.suggest(...)` in build.py (or by the same order below), then record it in the outline's Placement column. The final choice is yours; suggest is the starting point.
+1. No image that proves the point: `type-only` (H7, I8).
+2. Diagram or logo: `figure`. Screenshot: `annotated`, then `inset`.
+3. 2-4 comparable images: `gallery`. Panorama 3:1 or wider: `strip`.
+4. Cover, section or one-sentence slide with one photo: `bleed-scrim` (`bleed-panel` above 15 words), while full-bleed slides stay within `imagery.max_bleed`; past that, `split`.
+5. Evidence, detail, comparison: `split` or `inset`.
+6. Text goes opposite the focus. Skip a pattern that the previous 2 slides both used (L2) and any pattern not in `imagery.patterns`.
+
+How to build each pattern (API in deckkit-api.md):
+- `bleed-panel`, `bleed-scrim`, `split`, `inset`, `strip`, `gallery`: `s, box = d.pattern(name, title, path, focus=..., must_keep=..., words=...)`, passing `suggest()`'s params (`side`, `ratio`). Write body text into `box` (None means no room) with `color=d.text_color`.
+- `inset` needs `caption=` with provenance (source, date, place; I13). `split` defaults to `ratio=(5, 7)` (image, text columns); use `(7, 5)` when the photo is the point.
+- `figure`: `d.slide(title)` + `d.image(..., fit="contain")` + a caption line with the source. `annotated`: a figure + `d.callout`. `type-only`: a plain `d.slide`.
+- Full-bleed slides: the footer and page number would sit on the photo. Leave the footer off cover and section bleeds, or check its legibility on the render.
+- At most `imagery.max_bleed` full-bleed slides, never the same pattern 3 slides in a row. Captions with provenance on photos and figures (I13). No drawn device frames around screenshots (I11), no shape masks that imitate a cutout (I10).
+- Texture (only if `imagery.texture` is set): make it once with `imagefx.py texture --style "W/style.json" --out "W/assets/texture-<kind>.png"` and place it with `d.texture(s, path)` on one cover or section slide (C13).
+
 ### Writing rules
 - Use only the API in deckkit-api.md.
   - Use python-pptx directly only for what deckkit lacks, such as tables.
@@ -152,6 +178,10 @@ If `[deckkit warning]` appears, resolve every one and run again.
 | has EXIF rotation info | Normalize the image with `images.py` first |
 | With more than 3 series | Split the chart, or cut to 3 series |
 | highlight applies only to the first series | Use a single series, or drop highlight |
+| … using bleed-panel (contrast, too many words, must_keep, could not be analyzed) | The panel is already in place. Keep it, or shorten the text, pick a photo with a quiet side, or change the pattern |
+| only …px wide for a full-bleed background | Use split or inset, or get a larger photo |
+| Full-bleed slides exceed imagery.max_bleed | Change one full-bleed slide to split, inset or type-only |
+| Gallery without captions | Add one provenance caption per image |
 
 ### Self-check
 ```

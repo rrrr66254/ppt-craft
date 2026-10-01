@@ -54,6 +54,12 @@ The per-slide speaker notes are in `notes` of `lint.json` (for H5, S9, and check
 - Is attribution given for materials that need it (when credits.json exists): records for images that appear in the captures, with `attribution_required`, `share_alike`, or `ai_generated`, appear on the credits slide
 - Are `low_res` images kept out of large slots
 - If there is a logo, is it in the same position on every body slide
+- Text over a photo (bleed-scrim, strip, any text on an image): does it read clearly in the capture, at about 4.5:1 for body and 3:1 for 24pt or larger. If not: major. Check the footer and page number on full-bleed slides too
+- Full-bleed slides over `imagery.max_bleed` in style.json (default 3) (L24): major. The same placement pattern on 3 slides in a row (L2)
+- One treatment across the deck: photos that differ in tone, saturation, or gray/duotone (I12): major
+- Texture: above 0.1 opacity, on more than one slide, or over a textured theme (C13): major
+- Every photo and figure has a caption or source line with provenance (I13). Scrims are solid, never gradients (C1)
+- No fake device frames around screenshots (I11), no circle or polygon masks imitating a cutout (I10). An image slide with more than 4 elements or a title over 2 lines (L19)
 
 ## 8. Human touch (tells.md H1-H8)
 - A slide without H1 (specificity): major. If the brief has `lack of factual material`, minor. A one-sentence slide satisfies H1 with the fact in its title.

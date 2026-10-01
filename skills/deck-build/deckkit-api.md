@@ -24,6 +24,12 @@ d = Deck("style.json", lang="en")  # English deck: the chart source label become
 | `d.image(slide, box, path, *, fit="cover", focus=None, must_keep=None, anchor="center")` | Native crop (original preserved). focus and must_keep are the images.json values. Use `fit="contain"` for diagrams and logos. If a person or object is off to one side, use `anchor="thirds"` |
 | `d.icon(slide, box, svg_path, png_path=None)` | Icon from `assets.py icon get` (`<prefix>-<name>.svg` + `.png`). Editable vector in PowerPoint 2019+/365, PNG fallback elsewhere. Fits inside the box keeping aspect (contain). A missing PNG is rendered from the SVG. An SVG with external references raises `ValueError` |
 | `d.callout(slide, target_box, label, label_box, *, color="accent")` | Annotation on a screenshot: border around the target + connector line + note. If the label box is placed so it does not overlap the target, the line attaches on the side with the biggest gap |
+| `d.pattern(name, title, path, *, focus=None, must_keep=None, words=0, ...)` → `(slide, content_box)` | Builds a whole image slide. name: `bleed-panel` `bleed-scrim` `split` `inset` `strip` `gallery` (others raise `ValueError`, as does a name missing from `imagery.patterns`). Extra keywords: `side="left"` or `"right"` (text side, default opposite the focus) for bleed-*/split; `ratio=(5, 7)` (image, text columns) for split; `caption=` (required) for inset; `position`, `height_ratio` (≤ 0.4) for strip; gallery takes a list of 2-4 paths plus `captions=`, `hero=`. `content_box` is where body text goes, or None. bleed-scrim falls back to bleed-panel with a warning when contrast fails or there are more than 15 words |
+| `d.text_color` | `"ink"` or `"bg"`: the body-text color for the slide `d.pattern` just built. Pass it as `color=` to every text on that slide |
+| `suggest(image, role, words=0, n_images=None, prev=(), imagery=None, bleed_used=0)` (`from deckkit.patterns import suggest`) | Up to 2 ranked `{"pattern", "reason", "params"}`. image: the images.json entry (or None), role: `cover` `section` `statement` `evidence` `comparison` `detail`, prev: patterns of the previous 2 slides, imagery: `d.style["imagery"]`. Pass `params` on to `d.pattern`. `figure`/`annotated`/`type-only` are built by hand (below) |
+| `d.background(slide, path, *, focus=None, must_keep=None)` | Full-bleed picture behind everything (tagged pc:bleed, counts toward `imagery.max_bleed`). Prefer `d.pattern("bleed-panel"/"bleed-scrim", ...)`, which also handles text contrast |
+| `d.scrim(slide, box, *, color="ink", alpha=0.45)` | Solid translucent rectangle over a photo, 0 < alpha ≤ 0.7. Never a gradient |
+| `d.texture(slide, png_path)` | Texture from `imagefx.py texture` behind everything (tagged pc:texture, not counted toward max_bleed). One cover or section slide only (C13) |
 | `d.send_to_back(slide, shape)` | Send a background block or photo to the very back. Pass the shape that `d.rect`, `d.image`, or `d.text` returns |
 | `d.notes(slide, text)` | Speaker notes |
 | `d.footer(slide, left="", page=None)` | Footer (event name and date on the left, page number on the right). 0.3in tall, right below the body area |
@@ -37,6 +43,33 @@ Chart rules
 Automatic text-size fitting: with `fit=True` (the default), the text size shrinks automatically to fit the box.
 - Minimum size per role: head 28, title 20, governing 16, body 14, caption 10, mono 12 (pt)
 - If it still overflows at the minimum size, a warning appears. Then do not shrink the text further; cut the content or enlarge the box.
+
+## Image slides
+
+```python
+import json
+from deckkit.patterns import suggest
+
+images = json.load(open("assets/images.json", encoding="utf-8"))
+
+photo = "assets/treated/platform-room-harmonize.jpg"   # treated copy (deck-build step 2.4)
+entry = images["platform-room.jpg"]                      # type, size, focus, must_keep
+pick = suggest(entry, "evidence", words=9, prev=["type-only", "split"], imagery=d.style["imagery"])[0]
+if pick["pattern"] in ("figure", "annotated"):            # not d.pattern helpers: contained picture + caption (+ d.callout)
+    s = d.slide("The new cache nodes sit in rack B4")
+    x, w = d.col(0, 8)
+    d.image(s, (x, d.content_top, w, 4.2), photo, fit="contain")
+    d.text(s, (x, d.content_top + 4.3, w, 0.35), "Photo: Platform team, Seoul IDC, September 2026", "caption", color="muted")
+elif pick["pattern"] == "type-only":
+    s = d.slide("The new cache nodes sit in rack B4")
+else:
+    extra = {"caption": "Photo: Platform team, Seoul IDC, September 2026"} if pick["pattern"] == "inset" else {}
+    s, box = d.pattern(pick["pattern"], "The new cache nodes sit in rack B4", photo,
+                       focus=entry["focus"], must_keep=entry["must_keep"], words=9, **pick["params"], **extra)
+    if box:
+        d.text(s, box, "Two nodes, 64 GB each, added in July", color=d.text_color)
+```
+On full-bleed slides the footer and page number sit on the photo: leave the footer off cover and section bleeds, or check it on the render.
 
 ## Tables (not in deckkit: use python-pptx directly)
 
