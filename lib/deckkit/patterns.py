@@ -8,6 +8,7 @@ content_box is where the caller writes body text (None when the pattern leaves n
 bleed-panel   full-bleed photo + opaque grid-aligned panel holding the title (and body).
 bleed-scrim   full-bleed photo + solid translucent scrim (alpha >= 0.35, planned from the pixels under the text);
               falls back to bleed-panel when contrast cannot be reached or there are > 15 words.
+suggest()     content-driven ranking of up to 2 patterns per slide (see its docstring).
 split         photo in its columns, text in the others (ratio = image:text columns, tall photo gets the narrow part).
 inset         photo inside the margins with a required caption line (I13).
 strip         full-width band, at most 40% of the slide height.
@@ -17,6 +18,7 @@ from PIL import Image, ImageOps
 
 from . import legibility as L
 from .crop import cover_crop
+from .style import PATTERNS
 
 MAX_WORDS_ON_PHOTO = 15
 _BODY_H = 1.2          # room reserved for a short body line over a bleed-scrim
@@ -218,3 +220,55 @@ def gallery(d, title, paths, *, captions=None, hero=None):
 
 HELPERS = {"bleed-panel": bleed_panel, "bleed-scrim": bleed_scrim, "split": split, "inset": inset,
            "strip": strip, "gallery": gallery}
+
+
+ROLES = ("cover", "section", "statement", "evidence", "comparison", "detail")
+
+
+def suggest(image, role, words=0, n_images=None, prev=(), imagery=None, bleed_used=0):
+    """Return up to 2 ranked {"pattern", "reason", "params"} for one slide.
+    image: images.json entry (type, size [w, h], focus, must_keep) or None. prev: patterns of the previous 2 slides.
+    type-only is always allowed. A pattern already used on both of the previous 2 slides is skipped."""
+    imagery = imagery or {"patterns": list(PATTERNS), "max_bleed": 3}
+    allowed = imagery["patterns"]
+    n = n_images if n_images is not None else (1 if image else 0)
+    out = []
+
+    def add(p, reason, **params):
+        if (p in allowed or p == "type-only") and p not in [o["pattern"] for o in out] and list(prev[-2:]) != [p, p]:
+            out.append({"pattern": p, "reason": reason, "params": params})
+
+    def result():
+        return out[:2] or [{"pattern": "type-only", "reason": "fallback", "params": {}}]
+
+    if role not in ROLES:
+        raise ValueError(f"role must be one of {ROLES}")
+    if n == 0 or image is None:
+        add("type-only", "no image that proves the point (H7/I8)")
+        return result()
+    kind = image.get("type") or image.get("kind_guess")
+    w, h = (image.get("size") or [0, 0])[:2]
+    aspect = (w / h) if w and h else 1.5
+    fx = image.get("focus")
+    side = "right" if fx and (fx[0] + fx[2]) / 2 < 0.5 else "left"
+    if kind in ("diagram", "logo"):
+        add("figure", f"{kind}: never cropped, captioned")
+    if kind == "screenshot":
+        add("annotated", "real screen as evidence (H3)")
+        add("inset", "screenshot with caption")
+    if n >= 2:
+        add("gallery", f"{n} comparable images")
+    if aspect >= 3:
+        add("strip", f"panoramic {aspect:.1f}:1")
+    if role in ("cover", "section", "statement") and kind not in ("diagram", "logo", "screenshot"):
+        if bleed_used < imagery.get("max_bleed", 3):
+            if words > MAX_WORDS_ON_PHOTO:
+                add("bleed-panel", f"{role} with {words} words: opaque panel", side=side)
+            else:
+                add("bleed-scrim", f"{role}, short text over the quiet side", side=side)
+                add("bleed-panel", "fallback if contrast fails", side=side)
+    if role in ("evidence", "detail", "comparison", "cover", "section", "statement"):
+        add("split", "photo as evidence beside the claim", side=side, ratio=(5, 7) if aspect >= 1 else (4, 8))
+        add("inset", "supporting photo with caption")
+    add("type-only", "fallback")
+    return result()

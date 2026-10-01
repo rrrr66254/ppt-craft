@@ -6,6 +6,7 @@ from pptx.util import Emu
 
 import render
 from deckkit import Deck, legibility as L
+from deckkit.patterns import suggest
 from deckkit.crop import cover_crop
 from helpers import STYLE
 
@@ -275,3 +276,81 @@ def test_rendered_bleed_scrim_title_contrast(tmp_path):
     text = L.hex_rgb(STYLE["color"][d.text_color])
     ratios = sorted(r for r in (L.contrast(text, p) for p in getattr(region, "get_flattened_data", region.getdata)()) if r >= 1.5)  # drop glyph pixels
     assert len(ratios) > 1000 and ratios[len(ratios) // 20] >= 3.0  # 5th percentile of the background
+
+
+# ---- suggest() ----
+def _names_of(res):
+    return [r["pattern"] for r in res]
+
+
+PHOTO = {"type": "photo", "size": [3000, 2000], "focus": [0.4, 0.3, 0.6, 0.7]}
+
+
+def test_suggest_no_image_is_type_only():
+    assert _names_of(suggest(None, "statement")) == ["type-only"]
+    assert _names_of(suggest(PHOTO, "statement", n_images=0)) == ["type-only"]
+
+
+def test_suggest_diagram_figure_screenshot_annotated_first():
+    assert suggest({"type": "diagram", "size": [800, 600]}, "evidence")[0]["pattern"] == "figure"
+    assert suggest({"type": "logo"}, "cover")[0]["pattern"] == "figure"
+    shot = suggest({"type": "screenshot", "size": [1600, 900]}, "evidence")
+    assert _names_of(shot) == ["annotated", "inset"]
+
+
+def test_suggest_three_images_gallery():
+    assert suggest(PHOTO, "comparison", n_images=3)[0]["pattern"] == "gallery"
+
+
+def test_suggest_panorama_strip():
+    res = suggest({"type": "photo", "size": [4000, 1000]}, "evidence")
+    assert res[0]["pattern"] == "strip" and "4.0:1" in res[0]["reason"]
+
+
+def test_suggest_cover_photo_scrim_then_panel_and_wordy_panel_first():
+    assert _names_of(suggest(PHOTO, "cover", words=5)) == ["bleed-scrim", "bleed-panel"]
+    assert _names_of(suggest(PHOTO, "cover", words=20))[0] == "bleed-panel"
+
+
+def test_suggest_bleed_exhausted_puts_split_first():
+    res = suggest(PHOTO, "cover", bleed_used=3)
+    assert res[0]["pattern"] == "split"
+    assert suggest(PHOTO, "cover", bleed_used=2)[0]["pattern"] == "bleed-scrim"
+    assert suggest(PHOTO, "cover", bleed_used=1, imagery={"patterns": ["bleed-scrim", "split"], "max_bleed": 1})[0]["pattern"] == "split"
+
+
+def test_suggest_skips_pattern_used_on_both_previous_slides():
+    assert "split" not in _names_of(suggest(PHOTO, "evidence", prev=["split", "split"]))
+    assert "split" in _names_of(suggest(PHOTO, "evidence", prev=["inset", "split"]))
+    assert "split" in _names_of(suggest(PHOTO, "evidence", prev=["split"]))
+
+
+def test_suggest_filters_disallowed_patterns_type_only_always_allowed():
+    res = suggest(PHOTO, "cover", imagery={"patterns": ["inset"], "max_bleed": 3})
+    assert _names_of(res) == ["inset", "type-only"]
+    assert _names_of(suggest(PHOTO, "cover", imagery={"patterns": ["gallery"], "max_bleed": 3})) == ["type-only"]
+
+
+def test_suggest_focus_left_text_right():
+    left = suggest({**PHOTO, "focus": [0.0, 0.0, 0.3, 1.0]}, "cover")
+    assert left[0]["params"]["side"] == "right"
+    assert suggest({**PHOTO, "focus": [0.7, 0.0, 1.0, 1.0]}, "cover")[0]["params"]["side"] == "left"
+    assert suggest({"type": "photo", "size": [3000, 2000]}, "cover")[0]["params"]["side"] == "left"
+
+
+def test_suggest_tall_photo_split_ratio():
+    res = suggest({"type": "photo", "size": [1000, 1600]}, "evidence")
+    assert res[0]["pattern"] == "split" and res[0]["params"]["ratio"] == (4, 8)
+
+
+def test_suggest_unknown_role_raises():
+    with pytest.raises(ValueError, match="role must be one of"):
+        suggest(PHOTO, "intro")
+
+
+def test_suggest_results_run_through_the_helpers(d, tmp_path):
+    img = _photo(tmp_path)
+    for role in ("cover", "evidence"):
+        top = suggest({"type": "photo", "size": [2400, 1350]}, role, words=3)[0]
+        d.pattern(top["pattern"], "T", img, **({"caption": "c"} if top["pattern"] == "inset" else {}), **{
+            k: v for k, v in top["params"].items() if k in ("side", "ratio")})
