@@ -4,6 +4,22 @@ A Claude Code plugin that builds editable PowerPoint (`.pptx`) decks that don't 
 
 Most AI-generated decks share the same tells: three icon cards in a row, purple gradients, centered everything, emoji bullets, invented numbers, "Key Takeaways" endings. ppt-craft is built around a catalog of these tells (`rules/tells.md`) and the opposite signals of human-made work: real materials, specific facts, restraint, a consistent personality. Every deck is checked against both from rendered screenshots before you get it.
 
+Full guide: [docs/USAGE.md](docs/USAGE.md) · 한국어: [docs/USAGE.ko.md](docs/USAGE.ko.md)
+
+## Gallery
+
+The examples use fictional sample content, and no photos are included.
+
+| Style candidates (pick from rendered slides) | Image placement patterns |
+|---|---|
+| ![Three style candidates side by side](examples/style-candidates.jpg) | ![Image placement patterns](examples/image-patterns.jpg) |
+
+| Business report | Conference talk | Research talk |
+|---|---|---|
+| ![Business report example](examples/business-report/sheet.jpg) | ![Conference talk example](examples/conference-talk/sheet.jpg) | ![Research talk example](examples/research-talk/sheet.jpg) |
+
+Each example folder has the `build.py` and `style.json` that made it. See [Examples](docs/USAGE.md#examples).
+
 ## What it does
 
 1. **Brief.** A short interview covering audience, goal, length, sources, references and tone.
@@ -26,12 +42,23 @@ Credits and licenses are recorded and added to the deck.
 
 ## Install
 
+From the shell:
+
 ```bash
 claude plugin marketplace add rrrr66254/ppt-craft
 claude plugin install ppt-craft@ppt-craft
 ```
 
-To try it from a local clone instead, run `claude --plugin-dir ./ppt-craft`.
+Or inside a Claude Code session:
+
+```
+/plugin marketplace add rrrr66254/ppt-craft
+/plugin install ppt-craft@ppt-craft
+```
+
+Then run `/reload-plugins` or restart. To try it from a local clone instead, run `claude --plugin-dir ./ppt-craft`.
+
+Auto-update is off by default for this marketplace. Turn it on in `/plugin` → Marketplaces → ppt-craft, or update with `claude plugin update ppt-craft@ppt-craft`. Version pinning, team setup and uninstalling: [docs/USAGE.md#install](docs/USAGE.md#install).
 
 ### Requirements
 
@@ -85,4 +112,16 @@ AI가 만든 티가 나지 않는 PPT(.pptx)를 만드는 Claude Code 플러그�
 - **제작:** 편집할 수 있는 .pptx로 만듭니다.
 - **이미지:** 슬라이드 내용에 맞춰 사진 배치(전면·분할·인셋·띠·갤러리)를 고르고, 사진 톤 처리는 실제 렌더링으로 비교해서 정합니다.
 - **검수:** 별도의 검수 에이전트가 캡처를 보고 다시 확인합니다.
-- **사용:** `/ppt-craft:deck 주제`로 시작합니다. 한국어로 요청하면 한국어로 답합니다.
+- **사용:** `/ppt-craft:deck 주제`로 시작합니다. 한국어로 요청하면 한국어로 답합니다. 중간에 멈췄다면 `/ppt-craft:deck decks/<slug>`로 이어서 합니다.
+- **기존 자료 검수:** `/ppt-craft:deck-review 파일.pptx`
+
+설치:
+
+```bash
+claude plugin marketplace add rrrr66254/ppt-craft
+claude plugin install ppt-craft@ppt-craft
+```
+
+세션 안에서는 `/plugin marketplace add rrrr66254/ppt-craft`, `/plugin install ppt-craft@ppt-craft`를 실행한 뒤 `/reload-plugins`를 실행하세요. Python 3.10 이상과 렌더러(Windows는 PowerPoint, 그 밖에는 LibreOffice)가 필요합니다.
+
+자세한 사용법: [docs/USAGE.ko.md](docs/USAGE.ko.md)
