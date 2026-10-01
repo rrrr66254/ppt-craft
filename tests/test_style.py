@@ -68,3 +68,44 @@ def test_tuple_title_box_accepted():
 def test_bool_scale_rejected():
     with pytest.raises(ValueError, match="scale.body"):
         load_style({**STYLE, "scale": {"body": True}})
+
+
+def test_imagery_defaults():
+    im = load_style(STYLE)["imagery"]
+    assert im["treatment"] == "none" and im["harmonize"] is True
+    assert im["texture"] is None and im["max_bleed"] == 3
+    assert "bleed-scrim" in im["patterns"] and "type-only" in im["patterns"]
+
+
+def test_imagery_unknown_pattern_rejected():
+    with pytest.raises(ValueError, match="imagery.patterns"):
+        load_style({**STYLE, "imagery": {"patterns": ["split", "collage"]}})
+    with pytest.raises(ValueError, match="imagery.patterns"):
+        load_style({**STYLE, "imagery": {"patterns": []}})
+
+
+def test_imagery_texture_validation():
+    ok = load_style({**STYLE, "imagery": {"texture": {"kind": "paper", "opacity": 0.06}}})
+    assert ok["imagery"]["texture"]["kind"] == "paper"
+    with pytest.raises(ValueError, match="imagery.texture"):
+        load_style({**STYLE, "imagery": {"texture": {"kind": "paper", "opacity": 0.2}}})
+    with pytest.raises(ValueError, match="imagery.texture"):
+        load_style({**STYLE, "imagery": {"texture": {"kind": "marble", "opacity": 0.05}}})
+
+
+def test_imagery_max_bleed_and_other_fields_rejected():
+    with pytest.raises(ValueError, match="imagery.max_bleed"):
+        load_style({**STYLE, "imagery": {"max_bleed": True}})
+    with pytest.raises(ValueError, match="imagery.max_bleed"):
+        load_style({**STYLE, "imagery": {"max_bleed": 21}})
+    with pytest.raises(ValueError, match="imagery.treatment"):
+        load_style({**STYLE, "imagery": {"treatment": "sepia"}})
+    with pytest.raises(ValueError, match="imagery.harmonize"):
+        load_style({**STYLE, "imagery": {"harmonize": "yes"}})
+    with pytest.raises(ValueError, match="imagery"):
+        load_style({**STYLE, "imagery": []})
+
+
+def test_partial_imagery_keeps_defaults():
+    im = load_style({**STYLE, "imagery": {"max_bleed": 1}})["imagery"]
+    assert im["max_bleed"] == 1 and im["treatment"] == "none" and "split" in im["patterns"]

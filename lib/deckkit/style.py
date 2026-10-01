@@ -9,6 +9,9 @@ ROLES = ("head", "title", "governing", "body", "caption", "mono")
 COVERS = ("type", "band", "image")
 STRUCTURES = ("assertion", "governing")
 LAYOUTS = ("split", "statement", "figure")
+PATTERNS = ("bleed-panel", "bleed-scrim", "split", "inset", "strip", "gallery", "figure", "annotated", "type-only")
+TREATMENTS = ("none", "gray", "duotone")
+TEXTURES = ("paper", "grain", "dots", "grid")
 _HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 DEFAULTS = {
@@ -20,6 +23,7 @@ DEFAULTS = {
     "layout": "split",
     "motifs": [],
     "avoid": [],
+    "imagery": {"patterns": list(PATTERNS), "treatment": "none", "harmonize": True, "texture": None, "max_bleed": 3},
 }
 
 
@@ -85,3 +89,23 @@ def _validate(st):
         fail(f"structure must be one of {STRUCTURES}")
     if st["layout"] not in LAYOUTS:
         fail(f"layout must be one of {LAYOUTS}")
+    _validate_imagery(st["imagery"], fail, is_num)
+
+
+def _validate_imagery(im, fail, is_num):
+    if not isinstance(im, dict):
+        fail("imagery must be an object")
+    pats = im.get("patterns")
+    if not (isinstance(pats, list) and pats and all(p in PATTERNS for p in pats)):
+        fail(f"imagery.patterns must be a non-empty list of {PATTERNS} (got: {pats!r})")
+    if im.get("treatment") not in TREATMENTS:
+        fail(f"imagery.treatment must be one of {TREATMENTS}")
+    if not isinstance(im.get("harmonize"), bool):
+        fail("imagery.harmonize must be true or false")
+    mb = im.get("max_bleed")
+    if not (isinstance(mb, int) and not isinstance(mb, bool) and 0 <= mb <= 20):
+        fail("imagery.max_bleed must be an integer from 0 to 20")
+    tex = im.get("texture")
+    if tex is not None and not (isinstance(tex, dict) and tex.get("kind") in TEXTURES
+                                and is_num(tex.get("opacity")) and 0 < tex["opacity"] <= 0.1):
+        fail(f"imagery.texture must be null or {{kind: one of {TEXTURES}, opacity: >0 and <=0.1}}")
