@@ -56,6 +56,7 @@ class Deck:
         self.prs.slide_width, self.prs.slide_height = Inches(self.W), Inches(self.H)
         self._neutralize_theme(self.prs.slide_master.part.part_related_by(RT.THEME))
         self._notes_themed = False
+        self._bleeds = 0
         for role in ("head", "body", "mono"):
             family = self.style["font"][role]
             if find_font_file(family) is None:
@@ -133,6 +134,33 @@ class Deck:
         line.line.width = Pt(weight)
         _no_effects(line)
         return line
+
+    def _tag(self, shape, pattern):
+        """Name a shape pc:<pattern> so lint can count and compare image patterns."""
+        shape.name = f"pc:{pattern}"
+        return shape
+
+    def background(self, slide, path, *, focus=None, must_keep=None, pattern="bleed"):
+        """Full-bleed picture behind everything (native crop by focus). Counts toward imagery.max_bleed."""
+        with Image.open(path) as im:
+            if im.width < 1600:
+                self._warn(f"{Path(path).name}: only {im.width}px wide for a full-bleed background; use split or inset instead.")
+        pic = self.image(slide, (0, 0, self.W, self.H), path, focus=focus, must_keep=must_keep)
+        self.send_to_back(slide, pic)
+        self._bleeds += 1
+        limit = self.style["imagery"]["max_bleed"]
+        if self._bleeds > limit:
+            self._warn(f"Full-bleed slides exceed imagery.max_bleed ({limit}) - L24.")
+        return self._tag(pic, pattern)
+
+    def scrim(self, slide, box, *, color="ink", alpha=0.45):
+        """Solid translucent rectangle (never a gradient). alpha = opacity, 0 < alpha <= 0.7."""
+        if not (isinstance(alpha, (int, float)) and not isinstance(alpha, bool) and 0 < alpha <= 0.7):
+            raise ValueError(f"scrim alpha must be in (0, 0.7] (got: {alpha!r})")
+        shape = self.rect(slide, box, color)
+        srgb = shape._element.spPr.find(qn("a:solidFill")).find(qn("a:srgbClr"))
+        etree.SubElement(srgb, qn("a:alpha")).set("val", str(round(alpha * 100000)))
+        return self._tag(shape, "scrim")
 
     def send_to_back(self, slide, shape):
         """Send a shape to the very back (so the title shows over a background block)."""
