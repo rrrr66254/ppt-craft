@@ -107,7 +107,7 @@ def test_cli_texture(tmp_path):
     out = tmp_path / "tex" / "paper.png"
     assert imagefx.main(["texture", "--kind", "paper", "--opacity", "0.06", "--style", str(sp), "--out", str(out)]) == 0
     with Image.open(out) as res:
-        assert res.mode == "RGBA" and res.size == (1920, 1080)
+        assert res.mode == "RGBA" and res.size == (2000, 1125)
 
 
 def test_cli_exit_codes(tmp_path, capsys):
@@ -192,6 +192,13 @@ def test_texture_size_follows_canvas_ratio(tmp_path):
     assert imagefx.main(["texture", "--kind", "grid", "--style", _write_style(tmp_path, st), "--out", str(tmp_path / "t.png")]) == 0
     with Image.open(tmp_path / "t.png") as r:
         assert r.size == (1920, 1440)
+
+
+def test_texture_is_sharp_enough_for_a_wide_slide(tmp_path):
+    st = {**STYLE, "canvas": {"ratio": "16:9"}}
+    assert imagefx.main(["texture", "--kind", "paper", "--style", _write_style(tmp_path, st), "--out", str(tmp_path / "t.png")]) == 0
+    with Image.open(tmp_path / "t.png") as r:
+        assert r.width / 13.333 >= 150  # deckkit warns under 150dpi; the slide is 13.333in wide
 
 
 def test_texture_cli_defaults_from_style(tmp_path):

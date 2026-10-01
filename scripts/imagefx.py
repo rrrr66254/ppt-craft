@@ -11,6 +11,7 @@ bleed-panel/bleed-scrim/split), renders it and writes compare.png (rows "treat" 
 It ignores imagery.patterns (it is what the user chooses them from).
 Exit codes: 0 ok, 1 processing error, 2 usage error (compare: also no renderer)."""
 import argparse
+import math
 import os
 import random
 import sys
@@ -245,7 +246,8 @@ def _texture_cmd(a, style):
         return 2
     w, h = style["canvas"]["size"]
     try:
-        tex = texture(kind, style["color"]["ink"], opacity, size=(1920, round(1920 * h / w)))
+        px = max(1920, math.ceil(w * 150))  # deckkit warns under 150dpi across the slide width
+        tex = texture(kind, style["color"]["ink"], opacity, size=(px, round(px * h / w)))
     except ValueError as e:
         print(f"[imagefx] {e}", file=sys.stderr)
         return 2
