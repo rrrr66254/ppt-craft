@@ -13,7 +13,7 @@ bleed-scrim   full-bleed photo + solid translucent scrim (alpha >= 0.35, planned
 suggest()     content-driven ranking of up to 2 patterns per slide (see its docstring).
 split         photo half-bleed (full height, to the slide edge) in its columns, title and text in the others
               (ratio = image:text columns, tall photo gets the narrow part). fit="contain" keeps the picture inside
-              the content area. Put the footer on the text side: a page number at the right sits on the photo.
+              the content area. d.footer keeps itself on the text side.
 inset         photo inside the margins with a required caption line (I13).
 strip         full-width band, at most 40% of the slide height.
 gallery       2-4 cells in one row, one crop ratio for all (hero is bigger, top-aligned), optional captions.

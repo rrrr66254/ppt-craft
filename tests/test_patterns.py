@@ -233,6 +233,15 @@ def test_split_footer_text_stays_clear_of_the_photo_on_the_text_side(d, tmp_path
 
 
 @pytest.mark.parametrize("side", ["left", "right"])
+def test_split_footer_boxes_stay_off_the_photo(d, tmp_path, side):
+    s, _ = d.pattern("split", "Footer", _photo(tmp_path), side=side)
+    d.footer(s, "Event", 4)
+    pic = next(sh for sh in s.shapes if sh.name == "pc:split")
+    for f in (sh for sh in s.shapes if sh.has_text_frame and sh.text_frame.text in ("Event", "4")):
+        assert f.left + f.width <= pic.left or f.left >= pic.left + pic.width
+
+
+@pytest.mark.parametrize("side", ["left", "right"])
 def test_split_contain_aligns_to_grid_edge_of_its_side(d, tmp_path, side):
     s, box = d.pattern("split", "Contain", _photo(tmp_path, "t.jpg", (1000, 1600)), side=side, fit="contain", ratio=(6, 6))
     pic = next(sh for sh in s.shapes if sh.name == "pc:split")

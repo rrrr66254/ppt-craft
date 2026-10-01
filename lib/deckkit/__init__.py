@@ -372,12 +372,18 @@ class Deck:
             self._notes_themed = True
 
     def footer(self, slide, left="", page=None):
-        """Footer: event name, date, etc. on the left, page number on the right (H4)."""
+        """Footer: event name, date, etc. on the left, page number on the right (H4).
+        On a split slide both stay on the text side, off the photo."""
         y = self.H - self.m - 0.3
+        x0, x1 = self.m, self.W - self.m
+        for sh in slide.shapes:
+            if sh.name == "pc:split" and sh.top < Inches(0.01):  # half-bleed photo: keep the footer beside it
+                px0, px1 = sh.left / Inches(1), (sh.left + sh.width) / Inches(1)
+                x0, x1 = (px1 + self.m, x1) if px0 < 0.01 else (x0, px0 - self.m)
         if left:
-            self.text(slide, (self.m, y, self.W * 0.6, 0.3), left, "caption", color="muted", fit=False)
+            self.text(slide, (x0, y, min(self.W * 0.6, x1 - x0), 0.3), left, "caption", color="muted", fit=False)
         if page is not None:
-            self.text(slide, (self.W - self.m - 1.0, y, 1.0, 0.3), str(page), "caption", color="muted",
+            self.text(slide, (x1 - 1.0, y, 1.0, 0.3), str(page), "caption", color="muted",
                       align="right", fit=False)
 
     def save(self, path):
