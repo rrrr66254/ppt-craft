@@ -527,3 +527,44 @@ def test_suggest_results_run_through_the_helpers(d, tmp_path):
                 assert len(d.prs.slides) == before + 1
                 built += 1
     assert built >= 12
+
+
+# ---- role kwarg: a cover can use the head size ----
+HEAD = STYLE.get("scale", {}).get("head", 44)
+
+
+def _title_size_and_box(slide):
+    t = slide.shapes.title
+    return t.text_frame.paragraphs[0].runs[0].font.size.pt, t.height / EMU
+
+
+@pytest.mark.parametrize("name,kw", [("bleed-scrim", {"side": "left"}), ("bleed-panel", {"side": "left"}),
+                                     ("split", {"side": "left"}), ("split", {"side": "left", "fit": "contain"})])
+def test_role_head_gives_a_title_box_tall_enough_for_two_lines(d, tmp_path, name, kw):
+    size = d.style["scale"]["head"]
+    s, box = d.pattern(name, "승인 단계\n줄이기", _photo(tmp_path), role="head", **kw)
+    pt, h = _title_size_and_box(s)
+    assert pt == size and h >= 2 * 1.2 * size * d.style["rhythm"]["line_height"] / 72
+    ty = d.style["canvas"]["title_box"][1]
+    if box is not None:
+        assert box[1] >= ty + h  # body text starts below the taller title
+
+
+def test_default_role_keeps_the_title_box(d, tmp_path):
+    s, _ = d.pattern("bleed-scrim", "x", _photo(tmp_path))
+    pt, h = _title_size_and_box(s)
+    assert pt == d.style["scale"]["title"] and h == pytest.approx(d.style["canvas"]["title_box"][3])
+
+
+def test_bleed_scrim_plans_legibility_at_the_role_size(d, tmp_path, monkeypatch):
+    seen = []
+    real = L.plan
+    monkeypatch.setattr(L, "plan", lambda px, ink, bg, size: seen.append(size) or real(px, ink, bg, size))
+    d.pattern("bleed-scrim", "x", _photo(tmp_path), role="head")
+    d.pattern("bleed-scrim", "x", _photo(tmp_path), role="head", words=5)
+    assert seen == [d.style["scale"]["head"], d.style["scale"]["body"]]
+
+
+def test_unknown_role_raises(d, tmp_path):
+    with pytest.raises(ValueError, match="role"):
+        d.pattern("bleed-panel", "x", _photo(tmp_path), role="huge")

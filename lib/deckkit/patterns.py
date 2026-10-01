@@ -24,6 +24,7 @@ from PIL import Image
 from pptx.util import Inches
 
 from . import legibility as L
+from . import textfit
 from .crop import cover_crop
 from .style import PATTERNS
 
@@ -53,6 +54,17 @@ def _side(side, focus):
 def _title_y(d):
     _, y, _, h = d.style["canvas"]["title_box"]
     return y, h
+
+
+def _title_box(d, x, w, role, lines):
+    """Title-row box at x, w. The "title" role keeps title_box's height (titles line up across slides); a bigger role
+    (cover "head") gets a box tall enough for `lines` lines at its size, with the style's line spacing."""
+    d._check(role=role)
+    ty, th = _title_y(d)
+    if role != "title":
+        need = lines * 1.2 * d.style["scale"][role] * d.style["rhythm"]["line_height"] / textfit.SAFETY / 72
+        th = max(th, need)
+    return (x, ty, w, th)
 
 
 def _stack(d, slide, bottom_up):
@@ -97,17 +109,18 @@ def _finish(d, slide, box, text_color="ink"):
     return slide, box
 
 
-def bleed_panel(d, title, path, *, focus=None, must_keep=None, side=None, cols=5, words=0):
-    """words is accepted for interchangeability and ignored: the opaque panel always holds the text."""
+def bleed_panel(d, title, path, *, focus=None, must_keep=None, side=None, cols=5, words=0, role="title"):
+    """words is accepted for interchangeability and ignored: the opaque panel always holds the text.
+    role: title role (use "head" for a cover); the title box grows to fit 3 lines of it."""
     _allow(d, "bleed-panel")
     side = _side(side, focus)
     if not 2 <= cols <= 8:
         raise ValueError(f"cols must be from 2 to 8 (got: {cols})")
     start = 0 if side == "left" else 12 - cols
     x, w = d.col(start, cols)
-    ty, th = _title_y(d)
-    th *= 1.5  # a narrow panel wraps the title onto more lines
-    s = d.slide(title, box=(x, ty, w, th))
+    _, ty, _, th = _title_box(d, x, w, role, 3)
+    th = max(th, _title_y(d)[1] * 1.5)  # a narrow panel wraps the title onto more lines
+    s = d.slide(title, box=(x, ty, w, th), role=role)
     pic = d.background(s, path, focus=focus, must_keep=must_keep, pattern="bleed-panel")
     if side == "left":
         edge = sum(d.col(cols, 1))                  # the panel reaches one column past the text
@@ -121,14 +134,15 @@ def bleed_panel(d, title, path, *, focus=None, must_keep=None, side=None, cols=5
     return _finish(d, s, (x, top, w, d.content_bottom - top))
 
 
-def bleed_scrim(d, title, path, *, focus=None, must_keep=None, side=None, words=0):
+def bleed_scrim(d, title, path, *, focus=None, must_keep=None, side=None, words=0, role="title"):
+    """role: title role (use "head" for a cover); legibility is planned at that size (at body size when words > 0)."""
     _allow(d, "bleed-scrim")
     side = _side(side, focus)
     x, w = d.col(0 if side == "left" else 5, 7)
-    ty, th = _title_y(d)
-    body = (x, d.content_top, w, _BODY_H) if words else None
+    _, ty, _, th = tbox = _title_box(d, x, w, role, 2)
+    body = (x, ty + th + 0.3, w, _BODY_H) if words else None
     region = (x, ty, w, (body[1] + body[3] if body else ty + th) - ty)
-    size = d.style["scale"]["body" if words else "title"]
+    size = d.style["scale"]["body" if words else role]
     plan, problem = _plan_text(d, path, region, focus, must_keep, size)
     if words > MAX_WORDS_ON_PHOTO:
         d._warn(f"{words} words over a photo is too much text; using bleed-panel.")
@@ -139,13 +153,13 @@ def bleed_scrim(d, title, path, *, focus=None, must_keep=None, side=None, words=
     elif plan["panel"]:
         d._warn("Text over image fails contrast; using bleed-panel.")
     else:
-        return _scrim_slide(d, title, path, plan, body, (x, ty, w, th), focus, must_keep, side)
-    return bleed_panel(d, title, path, focus=focus, must_keep=must_keep, side=side)
+        return _scrim_slide(d, title, path, plan, body, tbox, focus, must_keep, side, role)
+    return bleed_panel(d, title, path, focus=focus, must_keep=must_keep, side=side, role=role)
 
 
-def _scrim_slide(d, title, path, plan, body, title_box, focus, must_keep, side):
+def _scrim_slide(d, title, path, plan, body, title_box, focus, must_keep, side, role):
     x, ty, w, _ = title_box
-    s = d.slide(title, box=title_box, color=plan["text"])
+    s = d.slide(title, box=title_box, color=plan["text"], role=role)
     pic = d.background(s, path, focus=focus, must_keep=must_keep, pattern="bleed-scrim")
     layers = [pic]
     if plan["alpha"]:
@@ -156,8 +170,9 @@ def _scrim_slide(d, title, path, plan, body, title_box, focus, must_keep, side):
     return _finish(d, s, body, plan["text"])
 
 
-def split(d, title, path, *, focus=None, must_keep=None, side=None, ratio=(5, 7), fit="cover", words=0):
-    """ratio = (image columns, text columns), summing to 12. `side` is the text side. words is ignored."""
+def split(d, title, path, *, focus=None, must_keep=None, side=None, ratio=(5, 7), fit="cover", words=0, role="title"):
+    """ratio = (image columns, text columns), summing to 12. `side` is the text side. words is ignored.
+    role: title role; the title box grows to fit 2 lines of it."""
     _allow(d, "split")
     side = _side(side, focus)
     if len(ratio) != 2 or sum(ratio) != 12 or min(ratio) < 1:
@@ -166,15 +181,18 @@ def split(d, title, path, *, focus=None, must_keep=None, side=None, ratio=(5, 7)
         tall = im.height > im.width
     img_cols, text_cols = sorted(ratio) if tall else ratio  # a tall photo goes to the narrow part
     img_start, text_start = (text_cols, 0) if side == "left" else (0, img_cols)
-    top, bottom = d.content_top, d.content_bottom
     ix, iw = d.col(img_start, img_cols)
     tx, tw = d.col(text_start, text_cols)
+    bottom = d.content_bottom
     if fit == "cover":  # half-bleed: full slide height, from the image columns' grid edge to the slide edge
+        tbox = _title_box(d, tx, tw, role, 2)  # the title never runs under the photo
+        top = tbox[1] + tbox[3] + 0.3
         box = (0, 0, ix + iw, d.H) if side == "right" else (ix, 0, d.W - ix, d.H)
-        s = d.slide(title, box=(tx, *_title_y(d)[:1], tw, _title_y(d)[1]))  # the title never runs under the photo
     else:
+        tbox = _title_box(d, d.m, d.W - 2 * d.m, role, 2)
+        top = tbox[1] + tbox[3] + 0.3
         box = (ix, top, iw, bottom - top)
-        s = d.slide(title)
+    s = d.slide(title, box=tbox, role=role)
     pic = d.image(s, box, path, fit=fit, focus=focus, must_keep=must_keep)
     if fit == "contain":  # a contained picture hugs the grid edge on its own side of the slide
         pic.left = Inches(ix + iw) - pic.width if side == "left" else Inches(ix)
