@@ -87,7 +87,7 @@ def _textures(tmp_path, n):
     d = Deck(STYLE)
     for i in range(n):
         s = d.slide(f"질감 {i}")
-        d.background(s, tex, pattern="texture")
+        d.texture(s, tex)
     return d.save(tmp_path / f"tex{n}.pptx")
 
 
@@ -166,7 +166,7 @@ def test_w15_clean(tmp_path, title, text):
 
 
 # ---- W16: fake names ----
-@pytest.mark.parametrize("text", ["Owner: John Doe", "acme dashboard", "Lorem dolor", "Foo Corp revenue"])
+@pytest.mark.parametrize("text", ["Owner: John Doe", "Acme dashboard", "Lorem dolor", "Foo Corp revenue"])
 def test_w16_fake_names(tmp_path, text):
     d = Deck(STYLE, lang="en")
     s = d.slide("Who owns the dashboard")
@@ -177,7 +177,7 @@ def test_w16_fake_names(tmp_path, text):
 def test_w16_real_names(tmp_path):
     d = Deck(STYLE, lang="en")
     s = d.slide("Who owns the dashboard")
-    d.text(s, d.body_box(0, 7), "Owner: Johnny Doerr at Acmetrix")
+    d.text(s, d.body_box(0, 7), "Owner: Johnny Doerr at Acmetrix, renewed via ACME")
     assert not _hits(_rules(d.save(tmp_path / "ok.pptx")), "W16")
 
 
@@ -215,3 +215,37 @@ def test_clean_image_deck(tmp_path, photo):
     assert not [f for f in findings if f["severity"] in ("blocker", "major")], findings
     new = {"C12", "C13", "L19", "L23", "L24", "W15", "W16", "L2"}
     assert not [f for f in findings if f["rule"] in new], findings
+
+
+def test_c12_tinted_black_is_gray(tmp_path):
+    from pptx.oxml.ns import qn
+    from lxml import etree
+    d = Deck(STYLE)
+    s = d.slide("틴트된 검정은 회색이다")
+    box = d.text(s, d.body_box(0, 7), "본문", color="#000000")
+    for clr in box._element.iter(qn("a:srgbClr")):
+        etree.SubElement(clr, qn("a:lumOff")).set("val", "35000")
+    assert not _hits(_rules(d.save(tmp_path / "tint.pptx")), "C12")
+
+
+def test_w15_skips_code_font_runs(tmp_path):
+    st = {**STYLE, "font": {**STYLE["font"], "mono": "Consolas"}}
+    d = Deck(st, lang="en")
+    s = d.slide("Run the build")
+    d.text(s, d.body_box(0, 7), 'print("hello")', "mono")
+    assert not _hits(_rules(d.save(tmp_path / "code.pptx")), "W15")
+
+
+def test_l2_bleed_scrim_with_and_without_scrim_is_one_pattern(tmp_path, photo):
+    d = Deck(STYLE)
+    for k, side in enumerate(("left", "right", "left")):
+        d.pattern("bleed-scrim", f"사진 {k}", photo, side=side)
+    path = d.save(tmp_path / "scrims.pptx")
+    names = [{sh.name for sh in sl.shapes} for sl in __import__("pptx").Presentation(path).slides]
+    assert any("pc:scrim" in n for n in names) and not all("pc:scrim" in n for n in names)
+    assert _hits(_rules(path), "L2")
+
+
+def test_bad_max_bleed_in_style_is_a_clear_error(tmp_path, photo):
+    with pytest.raises(ValueError, match="max_bleed"):
+        _rules(_bleeds(tmp_path, photo, 1), _style_file(tmp_path, max_bleed="2"))

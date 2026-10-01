@@ -35,10 +35,11 @@ ARROWS = re.compile("[→⇒➔➜➡≈✓✔]")
 EMOJI = re.compile("[\U0001F1E6-\U0001F1FF\U0001F300-\U0001FAFF]"
                    "|[\u2705\u274C\u274E\u2753-\u2755\u2757\u26A1\u2728\u23F0-\u23F3\u2B50\u2B55]"
                    "|[\u2600-\u27BF]\uFE0F|\u20E3")
+MONO = re.compile(r"mono|code|consol|courier|menlo", re.I)  # code runs keep their straight quotes
 HANGUL = re.compile(r"[\uac00-\ud7a3]")
 # a CLI flag such as --style is not a dash, so "--" only counts before a space/end or between words
 ASCII_PUNCT = re.compile(r'"|--(?![-\w])|(?<=\w)--(?=\w)|\.\.\.')
-FAKE_NAME = re.compile(r"\b(John|Jane) Doe\b|\bAcme\b|\bLorem\b|\bFoo Corp\b", re.I)
+FAKE_NAME = re.compile(r"\b(John|Jane) Doe\b|(?-i:\bAcme\b)|\bLorem\b|\bFoo Corp\b", re.I)
 NUMBER_CLAIM = re.compile(r"\d+(?:[.,]\d+)?\s?%|\d+(?:\.\d+)?\s?[xX]\b|\d+(?:\.\d+)?배(?!포)"
                           r"|\d+\s?(?:억|만)\s?(?:원|명)?|[$₩€]\s?\d")
 SOURCE_MARK = re.compile(r"출처|\bsources?\s*[:：]|\bsource\b|자료\s?:|참고\s?:|\[출처 필요\]", re.I)
@@ -289,7 +290,8 @@ def check_text(deck, out):
                     break
         for rule, spec in WORDS["per_deck"].items():
             per_deck[rule] += [i for pat in spec["patterns"] for _ in re.finditer(pat, text)]
-        if not HANGUL.search(text) and ASCII_PUNCT.search(text):
+        prose = "\n".join(r["text"] for r in sl["runs"] if not MONO.search(r["latin"] or ""))
+        if not HANGUL.search(text) and ASCII_PUNCT.search(prose):
             _f(out, "W15", i, "Straight quote, '--' or '...' in English text: use curly quotes, a dash, an ellipsis")
         m = FAKE_NAME.search(text)
         if m:
@@ -361,8 +363,10 @@ def check_structure(deck, out):
 
 
 def _pattern_key(sl):
-    """Pattern tags on a slide (pc:split, pc:bleed + pc:scrim, ...). Texture is decoration, not a pattern."""
-    return tuple(sorted({s["name"] for s in sl["shapes"] if s["name"].startswith("pc:") and s["name"] != "pc:texture"}))
+    """Pattern pictures on a slide (pc:split, pc:bleed-scrim, ...). Scrims/panels vary within one pattern and
+    texture is decoration, so neither is part of the key."""
+    return tuple(sorted({s["name"] for s in sl["shapes"]
+                         if s["kind"] == "pic" and s["name"].startswith("pc:") and s["name"] != "pc:texture"}))
 
 
 def _tagged_pic(sl, prefix):
@@ -459,6 +463,9 @@ def _check_colors(sl, out):
         _f(out, "C10", sl["idx"], f"{len(colors)} colors on one slide (excluding background)")
 
 
+TINTS = {qn("a:lumMod"), qn("a:lumOff"), qn("a:tint")}  # a tinted #000 is gray, not black
+
+
 def check_xml(deck, style_fonts, out):
     for sl in deck["slides"]:
         i, xml = sl["idx"], sl["xml"]
@@ -472,7 +479,8 @@ def check_xml(deck, style_fonts, out):
         _check_side_stripe(sl, out)
         _check_fake_chart(sl, out)
         _check_colors(sl, out)
-        if any((c.get("val") or "").upper() == "000000" for el in sl["els"] for r in el.iter(qn("a:rPr"))
+        if any((c.get("val") or "").upper() == "000000" and not any(m.tag in TINTS for m in c)
+               for el in sl["els"] for r in el.iter(qn("a:rPr"))
                for c in r.iterfind(f"{qn('a:solidFill')}/{qn('a:srgbClr')}")):
             _f(out, "C12", i, "Pure #000000 text: use the style's dark ink")
         hangul_runs = [r for r in sl["runs"] if HANGUL.search(r["text"])]
@@ -499,6 +507,8 @@ def lint(path, style=None):
         st = json.loads(Path(style).read_text(encoding="utf-8"))
         style_fonts = {str(v).lower() for v in st.get("font", {}).values() if isinstance(v, str)}
         max_bleed = (st.get("imagery") or {}).get("max_bleed", 3)
+        if not isinstance(max_bleed, int) or isinstance(max_bleed, bool):
+            raise ValueError(f"imagery.max_bleed in --style must be an integer (got: {max_bleed!r})")
     out = []
     check_text(deck, out)
     check_titles(deck, out)

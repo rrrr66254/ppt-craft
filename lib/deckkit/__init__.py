@@ -157,6 +157,11 @@ class Deck:
             self._warn(f"Full-bleed slides exceed imagery.max_bleed ({limit}) - L24.")
         return self._tag(pic, pattern)
 
+    def texture(self, slide, path):
+        """Subtle texture (imagefx.py texture) behind everything. Decoration, not a full-bleed photo: tagged pc:texture,
+        not counted toward imagery.max_bleed. Use it on one cover or section slide (C13)."""
+        return self.background(slide, path, pattern="texture")
+
     def scrim(self, slide, box, *, color="ink", alpha=0.45):
         """Solid translucent rectangle (never a gradient). alpha = opacity, 0 < alpha <= 0.7."""
         if not (isinstance(alpha, (int, float)) and not isinstance(alpha, bool) and 0 < alpha <= 0.7):

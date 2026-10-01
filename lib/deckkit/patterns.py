@@ -4,7 +4,7 @@ content_box is where the caller writes body text (None when the pattern leaves n
 - A pattern missing from style.imagery.patterns raises ValueError. Text goes opposite the image focus.
 - All x positions come from Deck.col(). Image shapes are named pc:<pattern> (backgrounds pc:bleed-panel / pc:bleed-scrim),
   panels and scrims pc:panel / pc:scrim.
-- All helpers take focus / must_keep / words (ignored where it makes no difference), so suggest() results are interchangeable.
+- All helpers take focus / must_keep / words (ignored where it makes no difference). inset also requires caption.
 - d.text_color is set to the color name ("ink" or "bg") for body text on the slide just built.
 
 bleed-panel   full-bleed photo + opaque grid-aligned panel holding the title (and body).
