@@ -146,6 +146,13 @@ def test_bleed_scrim_with_body_returns_grid_box(d, tmp_path):
     assert box[1] == pytest.approx(d.content_top)
 
 
+def test_bleed_scrim_transparent_pixels_read_as_slide_bg(d, tmp_path):
+    p = tmp_path / "clear.png"
+    Image.new("RGBA", (2400, 1350), (0, 0, 0, 0)).save(p)
+    d.pattern("bleed-scrim", "Clear", p, side="left")
+    assert d.text_color == "ink"  # read as black, the title would turn light
+
+
 def test_bleed_scrim_samples_raw_pixels_not_exif_rotated(d, tmp_path):
     # PowerPoint draws the raw orientation, so the title region must be read from the raw pixels.
     # Raw 1600x900: dark top half, light bottom half; the title sits at the top -> light text, no scrim.

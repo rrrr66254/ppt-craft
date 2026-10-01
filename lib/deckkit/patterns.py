@@ -68,6 +68,11 @@ def _plan_text(d, path, region, focus, must_keep, size_pt):
         if crop is None:
             return None, "must_keep"
         box_px = L.slide_box_to_image_px(region, (0, 0, d.W, d.H), im.size, crop)
+        if im.mode in ("RGBA", "LA", "PA") or "transparency" in im.info:
+            # transparent pixels show the slide background, not black
+            rgba = im.convert("RGBA")
+            im = Image.new("RGB", rgba.size, L.hex_rgb(color["bg"]))
+            im.paste(rgba, mask=rgba.getchannel("A"))
         try:
             return L.plan(L.region_pixels(im, box_px), color["ink"], color["bg"], size_pt), None
         except ValueError:
