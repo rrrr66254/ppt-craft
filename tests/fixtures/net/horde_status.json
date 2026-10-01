@@ -1,0 +1,25 @@
+{
+  "finished": 1,
+  "processing": 0,
+  "restarted": 0,
+  "waiting": 0,
+  "done": true,
+  "faulted": false,
+  "wait_time": 0,
+  "queue_position": 0,
+  "kudos": 8.0,
+  "is_possible": true,
+  "generations": [
+    {
+      "worker_id": "w1",
+      "worker_name": "worker",
+      "model": "stable_diffusion",
+      "state": "ok",
+      "img": "https://r2.example.invalid/horde/abc.webp",
+      "seed": "1234",
+      "id": "g1",
+      "censored": false
+    }
+  ],
+  "shared": false
+}

@@ -1,0 +1,44 @@
+{
+  "result_count": 2,
+  "page_count": 1,
+  "page_size": 2,
+  "page": 1,
+  "results": [
+    {
+      "id": "b1c1f097-1166-4f38-aa7f-e3088bb37b7a",
+      "title": "Squirrel posing",
+      "foreign_landing_url": "https://commons.wikimedia.org/w/index.php?curid=29980115",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/1/1c/Squirrel_posing.jpg",
+      "creator": "Peter Trimming",
+      "creator_url": null,
+      "license": "by",
+      "license_version": "2.0",
+      "license_url": "https://creativecommons.org/licenses/by/2.0/",
+      "provider": "wikimedia",
+      "source": "wikimedia",
+      "category": null,
+      "filetype": "jpg",
+      "height": 1426,
+      "width": 1706,
+      "thumbnail": "https://api.openverse.org/v1/images/b1c1f097-1166-4f38-aa7f-e3088bb37b7a/thumb/"
+    },
+    {
+      "id": "0d9b7f0e-4b0e-4d60-9a0e-0a3f4d2a7c11",
+      "title": "Tiny squirrel",
+      "foreign_landing_url": "https://commons.wikimedia.org/w/index.php?curid=1",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Tiny_squirrel.jpg",
+      "creator": "Somebody",
+      "creator_url": "https://example.org/somebody",
+      "license": "cc0",
+      "license_version": "1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "provider": "wikimedia",
+      "source": "wikimedia",
+      "category": null,
+      "filetype": "jpg",
+      "height": 400,
+      "width": 600,
+      "thumbnail": "https://api.openverse.org/v1/images/0d9b7f0e-4b0e-4d60-9a0e-0a3f4d2a7c11/thumb/"
+    }
+  ]
+}

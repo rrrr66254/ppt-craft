@@ -1,0 +1,15 @@
+{
+  "title": "Three months with a cache",
+  "subtitle": "How we halved order API latency",
+  "meta": "2026.10 Internal Tech Seminar · Platform Team",
+  "claim": "Adding a cache cut p99 latency in half",
+  "governing": "Most read requests now end at the cache, so the DB finally has room to breathe.",
+  "points": ["Order API p99 fell from 820ms to 410ms", "83% of read requests hit the cache; only the other 17% reach the DB", "DB CPU fell from 61% to 34%"],
+  "number": {"value": "410ms", "label": "Order API p99, September"},
+  "figure": {"caption": "Order API p99 latency before and after (ms)", "kind": "bar", "categories": ["Before", "After"],
+             "series": {"p99 latency (ms)": [820, 410]}, "highlight": 1, "source": "Internal APM dashboard"},
+  "chart": {"title": "In return, cloud cost rose by 380k KRW a month in September", "kind": "column", "caption": "Monthly cloud cost (10k KRW)",
+            "categories": ["Jul", "Aug", "Sep"], "series": {"Monthly cost (10k KRW)": [120, 131, 158]},
+            "highlight": 2, "source": "Cloud invoices", "takeaway": "The increase is the cost of 2 cache nodes"},
+  "source": "Internal APM dashboard, September 2026"
+}

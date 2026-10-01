@@ -1,0 +1,8 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+.omc/
+decks/
+*.pptx.bak
+.DS_Store
+Thumbs.db

@@ -1,0 +1,25 @@
+{
+  "photo_order": ["pexels", "openverse", "wikimedia", "pixabay"],
+  "photo": {
+    "pexels":    {"needs_key": "PEXELS_API_KEY",  "ai_images": "banned",  "license": "Pexels License", "license_url": "https://www.pexels.com/license/", "attribution": "optional"},
+    "openverse": {"needs_key": null, "sources": ["nasa", "met", "rijksmuseum", "nappy"], "license_type": "commercial,modification", "ai_images": "unflagged", "attribution": "per-license"},
+    "wikimedia": {"needs_key": null, "exclude": "-deepcategory:\"AI-generated images\"", "ai_images": "category-filtered", "attribution": "per-license"},
+    "pixabay":   {"needs_key": "PIXABAY_API_KEY", "ai_images": "mixed-unfilterable", "license": "Pixabay Content License", "license_url": "https://pixabay.com/service/license-summary/", "attribution": "optional"}
+  },
+  "excluded_photo": {"unsplash": "API terms require hotlinking and non-automated use", "flickr": "frequent license errors"},
+  "icon_sets_allowed": ["lucide", "tabler", "ph", "material-symbols", "fluent", "heroicons", "carbon", "mdi"],
+  "icon_licenses_allowed": ["MIT", "ISC", "Apache-2.0"],
+  "icon_sets_blocked": ["simple-icons", "logos", "openmoji"],
+  "min_photo_width": 1200,
+  "generate": {
+    "order": ["cloudflare", "pollinations", "huggingface", "horde"],
+    "cloudflare":   {"needs": ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"], "model": "@cf/black-forest-labs/flux-1-schnell", "license": "Apache-2.0", "label": "Cloudflare Workers AI", "model_label": "FLUX.1-schnell"},
+    "pollinations": {"needs": ["POLLINATIONS_API_KEY"], "model": "black-forest-labs/flux.1-schnell", "license": "Apache-2.0", "label": "Pollinations", "model_label": "FLUX.1-schnell"},
+    "huggingface":  {"needs": ["HF_TOKEN"], "model": "black-forest-labs/FLUX.1-schnell", "license": "Apache-2.0", "label": "Hugging Face (nscale)", "model_label": "FLUX.1-schnell"},
+    "horde":        {"needs": [], "max_side": 576, "license": "unverified (per-model)", "small_slots_only": true, "label": "AI Horde"},
+    "excluded": {"pollinations-anonymous": "forced logo watermark, ~1 image/min, 402 after first call", "gemini": "no free tier for image models"},
+    "min_width": 960,
+    "style_suffix": "documentary photograph, natural light, muted colors, 35mm lens, no text, no logos, no watermark",
+    "banned_words": ["8k", "ultra-detailed", "hyper-realistic", "hyper realistic", "hyperrealistic", "ultra detailed", "cinematic", "neon", "glossy", "masterpiece", "trending", "octane", "unreal engine"]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "report-grid",
+  "mood": "Tidy report style. Left-aligned, governing message, emphasized numbers. Fits business decks, internal reports, and proposals",
+  "canvas": {"ratio": "16:9", "margin": 0.6},
+  "color": {"bg": "#FFFFFF", "ink": "#1A1D23", "muted": "#6A7280", "accent": "#1D4E89"},
+  "font": {"head": "Pretendard", "body": "Pretendard"},
+  "scale": {"head": 40, "title": 26, "governing": 18, "body": 16, "caption": 11, "mono": 13},
+  "rhythm": {"line_height": 1.3, "tracking_head": -0.03, "tracking_body": -0.015},
+  "cover": "type",
+  "structure": "governing",
+  "layout": "split",
+  "motifs": ["Title area in a fixed position", "Big number + small caption", "Tables with horizontal rules only"],
+  "avoid": ["L1", "L5", "L6", "C1", "C3"],
+  "source": "preset:report-grid"
+}

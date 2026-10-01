@@ -1,0 +1,16 @@
+ppt-craft
+Copyright (c) 2026 Dongjun Kim. Licensed under the MIT License (see LICENSE).
+
+Design guidance in rules/tells.md and the skills paraphrases ideas from these
+projects (no source code or assets are included):
+
+- Hallmark (Nutlope/hallmark), MIT License
+- Impeccable (pbakaus/impeccable), Apache License 2.0
+- taste-skill (Leonxlnx/taste-skill), MIT License
+- ui-ux-pro-max-skill (nextlevelbuilder/ui-ux-pro-max-skill), MIT License
+- frontend-design skill (anthropics/skills), Apache License 2.0
+
+Third-party content fetched at runtime (photos, generated images, icons, fonts)
+is downloaded to the user's machine on request and is not redistributed with
+this plugin. Each item keeps its own license, recorded in the deck's
+assets/credits.json.

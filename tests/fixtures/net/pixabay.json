@@ -1,0 +1,36 @@
+{
+  "total": 2,
+  "totalHits": 2,
+  "hits": [
+    {
+      "id": 195893,
+      "pageURL": "https://pixabay.com/photos/blossom-bloom-flower-195893/",
+      "type": "photo",
+      "tags": "blossom, bloom, flower",
+      "previewURL": "https://cdn.pixabay.com/photo/2013/10/15/09/12/flower-195893_150.jpg",
+      "webformatURL": "https://pixabay.com/get/g1234_640.jpg",
+      "webformatWidth": 640,
+      "webformatHeight": 426,
+      "largeImageURL": "https://pixabay.com/get/g5678_1280.jpg",
+      "imageWidth": 4000,
+      "imageHeight": 2667,
+      "imageSize": 4731420,
+      "views": 1000,
+      "user_id": 48777,
+      "user": "Josch13",
+      "userImageURL": "https://cdn.pixabay.com/user/2014/05/07/00-10-34-2_250x250.jpg"
+    },
+    {
+      "id": 77,
+      "pageURL": "https://pixabay.com/photos/small-77/",
+      "type": "photo",
+      "tags": "small",
+      "webformatURL": "https://pixabay.com/get/g1_640.jpg",
+      "largeImageURL": "https://pixabay.com/get/g2_1280.jpg",
+      "imageWidth": 1000,
+      "imageHeight": 700,
+      "user_id": 5,
+      "user": "Tiny"
+    }
+  ]
+}

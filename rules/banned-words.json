@@ -1,0 +1,21 @@
+{
+  "per_hit": {
+    "W1": ["\\bunlock", "\\bunleash", "\\bempower", "\\belevat(e|es|ing)\\b", "\\bharness", "\\brevolutioni[sz]", "\\bstreamlin", "\\bleverag"],
+    "W2": ["\\bdelv(e|es|ing)\\b", "\\btapestry", "\\btestament\\b", "\\bpivotal", "\\bunderscor", "\\blandscape\\b", "\\bseamless", "\\bcutting-edge", "\\bgame-?changer", "\\brobust\\b"],
+    "W6": ["\\bnot (just|only|merely)\\b[^.]{1,60}\\bbut\\b", "\\bit'?s not\\b[^.]{1,40}\\bit'?s\\b"],
+    "W10": ["in today'?s", "fast-paced world", "crucial to note", "important to note", "ever-evolving"],
+    "W12": ["\\bstudies (show|suggest)", "\\bexperts (agree|say)", "\\bresearch shows", "\\bindustry reports", "연구에 따르면", "전문가들은", "업계에서는"],
+    "K3": ["결론적으로", "요약하자면", "종합하면", "정리하자면"],
+    "K4": ["혁신적", "획기적", "차별화된", "독보적", "패러다임", "심오한"],
+    "K5": ["다양한", "핵심적인", "효과적으로", "효율성(을)? ?제고", "전략적 접근"],
+    "K6": ["시너지", "극대화", "최적화", "인사이트"],
+    "K7": ["단순(한|히)[^.]{0,20}(이|가)? ?아니(라|다)"]
+  },
+  "per_deck": {
+    "K1": {"min": 3, "patterns": ["[을를] 통해", "에 있어서", "함에 따라"]},
+    "K2": {"min": 3, "patterns": ["하는 것이 (중요|필요)", "할 필요가 있", "해야 할 것"]},
+    "K10": {"min": 4, "patterns": ["또한", "이처럼", "이를 통해", "이러한"]},
+    "K12": {"min": 3, "patterns": ["[가-힣]+\\([A-Za-z][A-Za-z ]{2,}\\)"]},
+    "K14": {"min": 2, "patterns": ["[이가] 요구된다", "되어진다", "되어져야"]}
+  }
+}

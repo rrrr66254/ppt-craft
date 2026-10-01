@@ -1,0 +1,15 @@
+{
+  "name": "ppt-craft",
+  "description": "ppt-craft: a Claude Code plugin for PowerPoint decks that don't look AI-generated.",
+  "owner": {
+    "name": "rrrr66254",
+    "url": "https://github.com/rrrr66254"
+  },
+  "plugins": [
+    {
+      "name": "ppt-craft",
+      "source": "./",
+      "description": "Make PowerPoint decks that don't look AI-generated: references to rendered style candidates to an editable .pptx, re-reviewed from screenshots."
+    }
+  ]
+}

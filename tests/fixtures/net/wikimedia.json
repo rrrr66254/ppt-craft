@@ -1,0 +1,58 @@
+{
+  "batchcomplete": "",
+  "query": {
+    "pages": {
+      "1234": {
+        "pageid": 1234,
+        "ns": 6,
+        "title": "File:Squirrel drawing.svg",
+        "index": 2,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 2000,
+            "width": 2000,
+            "height": 2000,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Squirrel_drawing.svg/640px-Squirrel_drawing.svg.png",
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Squirrel_drawing.svg",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Squirrel_drawing.svg",
+            "extmetadata": {
+              "LicenseShortName": {"value": "CC0"},
+              "AttributionRequired": {"value": "false"}
+            },
+            "mime": "image/svg+xml"
+          }
+        ]
+      },
+      "47900137": {
+        "pageid": 47900137,
+        "ns": 6,
+        "title": "File:Grey squirrel (Sciurus carolinensis) 02.jpg",
+        "index": 1,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1539521,
+            "width": 3459,
+            "height": 2307,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/07/Grey_squirrel_%28Sciurus_carolinensis%29_02.jpg/640px-Grey_squirrel_%28Sciurus_carolinensis%29_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 640,
+            "thumbheight": 427,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/0/07/Grey_squirrel_%28Sciurus_carolinensis%29_02.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Grey_squirrel_(Sciurus_carolinensis)_02.jpg",
+            "extmetadata": {
+              "Artist": {
+                "value": "<bdi><a href=\"https://www.wikidata.org/wiki/Q54800218\" class=\"extiw\" title=\"d:Q54800218\"><span title=\"Scottish wildlife photographer\">Charles J. Sharp</span></a></bdi>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {"value": "CC BY-SA 4.0", "source": "commons-desc-page", "hidden": ""},
+              "LicenseUrl": {"value": "https://creativecommons.org/licenses/by-sa/4.0", "source": "commons-desc-page"},
+              "AttributionRequired": {"value": "true", "source": "commons-desc-page", "hidden": ""}
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      }
+    }
+  }
+}
