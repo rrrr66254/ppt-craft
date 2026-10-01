@@ -22,6 +22,7 @@ from pptx.util import Inches, Pt
 
 from .crop import contain_box, cover_crop, effective_dpi
 from .fonts import find_font_file
+from .patterns import HELPERS as _PATTERNS
 from .style import load_style
 from .svg import svg_aspect, svg_is_safe
 from .textfit import fit_size, has_broken_word
@@ -57,6 +58,7 @@ class Deck:
         self._neutralize_theme(self.prs.slide_master.part.part_related_by(RT.THEME))
         self._notes_themed = False
         self._bleeds = 0
+        self.text_color = "ink"  # body-text color name for the slide the last pattern built
         for role in ("head", "body", "mono"):
             family = self.style["font"][role]
             if find_font_file(family) is None:
@@ -161,6 +163,12 @@ class Deck:
         srgb = shape._element.spPr.find(qn("a:solidFill")).find(qn("a:srgbClr"))
         etree.SubElement(srgb, qn("a:alpha")).set("val", str(round(alpha * 100000)))
         return self._tag(shape, "scrim")
+
+    def pattern(self, name, *args, **kw):
+        """Build an image slide with a placement pattern: returns (slide, content_box). See deckkit.patterns."""
+        if name not in _PATTERNS:
+            raise ValueError(f"pattern must be one of {list(_PATTERNS)} (got: {name!r}); figure/annotated/type-only use d.image, d.callout, d.slide")
+        return _PATTERNS[name](self, *args, **kw)
 
     def send_to_back(self, slide, shape):
         """Send a shape to the very back (so the title shows over a background block)."""
