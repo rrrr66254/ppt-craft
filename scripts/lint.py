@@ -1,6 +1,10 @@
 """Automated pre-render check: finds the AI-tell rules that text and XML alone can catch (rule IDs are in rules/tells.md).
 Usage: python lint.py <pptx> [--style style.json] [--out lint.json]
 Exit codes: 0 clean (0 even with only minors), 1 blockers/majors present, 2 lint failed (corrupt file, etc.).
+Imagery rules read the deckkit shape names pc:<pattern> (pc:bleed background, pc:panel, pc:scrim, pc:texture, pc:split, ...):
+C12 pure #000 text runs, C13 texture on more than one slide, L19 more than 4 elements or a title over 2 lines on an image slide,
+L23 more than 5 bullets in one frame, L24 full-bleed slides over --style imagery.max_bleed (default 3),
+L2 also for 3 slides in a row with the same pattern tags, W15 straight quotes/--/... on slides without Hangul, W16 fake names.
 Items that can only be judged from captures are left to deck-reviewer."""
 import argparse
 import json
@@ -20,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORDS = json.loads((ROOT / "rules" / "banned-words.json").read_text(encoding="utf-8"))
 
 SEVERITY = {"W14": "blocker", "I3": "blocker", "T12": "blocker",
-            "L2": "major", "L6": "major", "C1": "major", "C6": "major", "D3": "major",
+            "L2": "major", "L6": "major", "C12": "major", "L24": "major", "C1": "major", "C6": "major", "D3": "major",
             "D5": "major", "S1": "major", "T11": "major"}
 ORDER = {"blocker": 0, "major": 1, "minor": 2}
 FONT_RULE = {"inter": "T1", "roboto": "T1", "arial": "T1",
@@ -32,6 +36,9 @@ EMOJI = re.compile("[\U0001F1E6-\U0001F1FF\U0001F300-\U0001FAFF]"
                    "|[\u2705\u274C\u274E\u2753-\u2755\u2757\u26A1\u2728\u23F0-\u23F3\u2B50\u2B55]"
                    "|[\u2600-\u27BF]\uFE0F|\u20E3")
 HANGUL = re.compile(r"[\uac00-\ud7a3]")
+# a CLI flag such as --style is not a dash, so "--" only counts before a space/end or between words
+ASCII_PUNCT = re.compile(r'"|--(?![-\w])|(?<=\w)--(?=\w)|\.\.\.')
+FAKE_NAME = re.compile(r"\b(John|Jane) Doe\b|\bAcme\b|\bLorem\b|\bFoo Corp\b", re.I)
 NUMBER_CLAIM = re.compile(r"\d+(?:[.,]\d+)?\s?%|\d+(?:\.\d+)?\s?[xX]\b|\d+(?:\.\d+)?배(?!포)"
                           r"|\d+\s?(?:억|만)\s?(?:원|명)?|[$₩€]\s?\d")
 SOURCE_MARK = re.compile(r"출처|\bsources?\s*[:：]|\bsource\b|자료\s?:|참고\s?:|\[출처 필요\]", re.I)
@@ -231,7 +238,8 @@ def load(path):
             for sh, geo in _walk(top):  # group children are collected in slide coordinates, after the group transform
                 try:
                     is_title = sh.shape_id == title_id
-                    shapes.append({"kind": _kind(sh), **geo, "is_title": is_title, "el": sh._element})
+                    shapes.append({"kind": _kind(sh), **geo, "is_title": is_title, "el": sh._element, "name": sh.name,
+                                   "has_text": bool("".join(sh._element.itertext()).strip())})
                     els.append(sh._element)
                     if sh.has_text_frame:
                         frame += 1
@@ -281,6 +289,11 @@ def check_text(deck, out):
                     break
         for rule, spec in WORDS["per_deck"].items():
             per_deck[rule] += [i for pat in spec["patterns"] for _ in re.finditer(pat, text)]
+        if not HANGUL.search(text) and ASCII_PUNCT.search(text):
+            _f(out, "W15", i, "Straight quote, '--' or '...' in English text: use curly quotes, a dash, an ellipsis")
+        m = FAKE_NAME.search(text)
+        if m:
+            _f(out, "W16", i, f"Placeholder name '{m.group(0)}': use a real name")
         if NUMBER_CLAIM.search(text) and not SOURCE_MARK.search(text + "\n" + sl["notes"]):
             _f(out, "D3", i, "Figure without a source: add a source on the slide or in the notes, or mark it [source needed]")
     for rule, hits in per_deck.items():
@@ -331,14 +344,52 @@ def check_structure(deck, out):
             _f(out, "T9", i, "Bold overused in body text")
         if any(p["text"].startswith(BULLET_CHARS) for p in paras):
             _f(out, "BULLET", i, "Bullet character typed directly as text (risk of double bullets)")
+        if any(n > 5 for n in Counter(p["frame"] for p in bullets).values()):
+            _f(out, "L23", i, "More than 5 bullets in one list: group them, split columns or split the slide")
     if len(bullet_counts) >= 4 and sum(1 for c in bullet_counts if c == 3) / len(bullet_counts) > 0.6:
         _f(out, "W5", None, "More than 60% of slides have exactly 3 bullets (rule of three)")
-    sigs = [_signature(sl, deck["height"]) for sl in deck["slides"]]
-    run = 1
-    for k in range(1, len(sigs)):
-        run = run + 1 if sigs[k] and sigs[k] == sigs[k - 1] else 1
-        if run == 3:
-            _f(out, "L2", deck["slides"][k]["idx"], "Same layout on 3 slides in a row")
+    flagged = set()
+    for keys, msg in (([_signature(sl, deck["height"]) for sl in deck["slides"]], "Same layout on 3 slides in a row"),
+                      ([_pattern_key(sl) for sl in deck["slides"]], "Same image pattern ({}) on 3 slides in a row")):
+        run = 1
+        for k in range(1, len(keys)):
+            run = run + 1 if keys[k] and keys[k] == keys[k - 1] else 1
+            idx = deck["slides"][k]["idx"]
+            if run == 3 and idx not in flagged:
+                flagged.add(idx)
+                _f(out, "L2", idx, msg.format(" + ".join(map(str, keys[k]))))
+
+
+def _pattern_key(sl):
+    """Pattern tags on a slide (pc:split, pc:bleed + pc:scrim, ...). Texture is decoration, not a pattern."""
+    return tuple(sorted({s["name"] for s in sl["shapes"] if s["name"].startswith("pc:") and s["name"] != "pc:texture"}))
+
+
+def _tagged_pic(sl, prefix):
+    return any(s["kind"] == "pic" and s["name"].startswith(prefix) for s in sl["shapes"])
+
+
+def check_imagery(deck, max_bleed, out):
+    height = deck["height"]
+    for sl in deck["slides"]:
+        if not any(s["kind"] == "pic" and s["name"].startswith("pc:") and s["name"] != "pc:texture" for s in sl["shapes"]):
+            continue
+        # not counted: pattern images, scrims and panels (pc:*), the footer band, caption-size text (<= 0.35in tall)
+        n = sum(1 for s in sl["shapes"]
+                if not s["name"].startswith("pc:")
+                and (s["kind"] in ("pic", "chart") or (s["kind"] == "text" and s["has_text"] and s["h"] > 0.351))
+                and not (s["h"] <= 0.5 and s["y"] + s["h"] >= height - 1.0))
+        lines = len([t for t in re.split(r"[\n\v]", sl["title"]) if t.strip()])
+        if n > 4:
+            _f(out, "L19", sl["idx"], f"{n} elements on an image slide (at most 4, title included)")
+        elif lines > 2:
+            _f(out, "L19", sl["idx"], f"Title has {lines} lines on an image slide (at most 2)")
+    bleeds = [sl["idx"] for sl in deck["slides"] if _tagged_pic(sl, "pc:bleed")]
+    if len(bleeds) > max_bleed:
+        _f(out, "L24", None, f"{len(bleeds)} full-bleed slides {bleeds}, more than imagery.max_bleed ({max_bleed})")
+    textures = [sl["idx"] for sl in deck["slides"] if _tagged_pic(sl, "pc:texture")]
+    if len(textures) > 1:
+        _f(out, "C13", None, f"Texture on {len(textures)} slides {textures}: use it on one cover or section slide only")
 
 
 def _inherits_effects(sl, flags):
@@ -421,6 +472,9 @@ def check_xml(deck, style_fonts, out):
         _check_side_stripe(sl, out)
         _check_fake_chart(sl, out)
         _check_colors(sl, out)
+        if any((c.get("val") or "").upper() == "000000" for el in sl["els"] for r in el.iter(qn("a:rPr"))
+               for c in r.iterfind(f"{qn('a:solidFill')}/{qn('a:srgbClr')}")):
+            _f(out, "C12", i, "Pure #000000 text: use the style's dark ink")
         hangul_runs = [r for r in sl["runs"] if HANGUL.search(r["text"])]
         if any(r["ea"] in ("", "+mn-ea", "+mj-ea") for r in hangul_runs) and not deck["ko_font_set"] and not style_fonts & OFFICE_KO:
             _f(out, "T12", i, "Hangul run has no East Asian (ea) font set: will be substituted with Malgun Gothic/Gulim")
@@ -440,16 +494,18 @@ def check_theme(deck, style_fonts, out):
 
 def lint(path, style=None):
     deck = load(path)
-    style_fonts = set()
+    style_fonts, max_bleed = set(), 3
     if style:
-        font = json.loads(Path(style).read_text(encoding="utf-8")).get("font", {})
-        style_fonts = {str(v).lower() for v in font.values() if isinstance(v, str)}
+        st = json.loads(Path(style).read_text(encoding="utf-8"))
+        style_fonts = {str(v).lower() for v in st.get("font", {}).values() if isinstance(v, str)}
+        max_bleed = (st.get("imagery") or {}).get("max_bleed", 3)
     out = []
     check_text(deck, out)
     check_titles(deck, out)
     check_structure(deck, out)
     check_xml(deck, style_fonts, out)
     check_theme(deck, style_fonts, out)
+    check_imagery(deck, max_bleed, out)
     out.sort(key=lambda f: (ORDER[f["severity"]], f["slide"] or 0))
     counts = Counter(f["severity"] for f in out)
     notes = {str(sl["idx"]): sl["notes"] for sl in deck["slides"] if sl["notes"].strip()}  # the reviewer checks H5, S9, and sources that appear only in the notes
