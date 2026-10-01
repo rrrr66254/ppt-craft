@@ -7,11 +7,13 @@ Most AI-generated decks share the same tells: three icon cards in a row, purple 
 ## What it does
 
 1. **Brief.** A short interview covering audience, goal, length, sources, references and tone.
-2. **Style.** Three style candidates are rendered from your references (a `.pptx`, images, a URL) or built-in presets, and you pick from real slide images, not JSON. Fonts are chosen from rendered comparisons and remembered for next time.
+2. **Style.** Three style candidates are rendered from your references (a `.pptx`, images, a URL) or built-in presets, and you pick from real slide images, not JSON. Fonts are chosen from rendered comparisons and remembered for next time. If the deck uses photos, you also pick a photo treatment and the image placements you like from one rendered comparison of your own photo.
 3. **Build.** A storyboard where the slide titles alone carry the argument, then a native, editable `.pptx`:
    - real charts, not drawn shapes
    - proper Korean line breaking and East Asian fonts
    - native image crops you can re-crop in PowerPoint
+   - image placement chosen per slide from its content: full-bleed photos behind a solid panel or a translucent scrim checked for text contrast, half-bleed split, captioned inset, strip, gallery, or no image at all
+   - one consistent treatment across all photos (none, gray, duotone), plus an optional subtle texture on a cover or section slide
 4. **Review.** A separate reviewer agent that never sees the build code judges the deck from rendered captures, plus an automatic text/XML lint. It loops up to 3 times until there are no blocker or major issues.
 
 **Optional free assets, fetched at runtime with your consent:**
@@ -81,5 +83,6 @@ AI가 만든 티가 나지 않는 PPT(.pptx)를 만드는 Claude Code 플러그�
 
 - **스타일 고르기:** 레퍼런스에서 스타일을 따온 후보를 실제 렌더링 이미지로 비교해서 고릅니다.
 - **제작:** 편집할 수 있는 .pptx로 만듭니다.
+- **이미지:** 슬라이드 내용에 맞춰 사진 배치(전면·분할·인셋·띠·갤러리)를 고르고, 사진 톤 처리는 실제 렌더링으로 비교해서 정합니다.
 - **검수:** 별도의 검수 에이전트가 캡처를 보고 다시 확인합니다.
 - **사용:** `/ppt-craft:deck 주제`로 시작합니다. 한국어로 요청하면 한국어로 답합니다.
