@@ -109,3 +109,8 @@ def test_imagery_max_bleed_and_other_fields_rejected():
 def test_partial_imagery_keeps_defaults():
     im = load_style({**STYLE, "imagery": {"max_bleed": 1}})["imagery"]
     assert im["max_bleed"] == 1 and im["treatment"] == "none" and "split" in im["patterns"]
+
+
+def test_imagery_unknown_key_rejected():
+    with pytest.raises(ValueError, match="unknown keys"):
+        load_style({**STYLE, "imagery": {"max_bleeds": 2}})

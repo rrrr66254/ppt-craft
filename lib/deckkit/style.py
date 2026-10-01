@@ -95,6 +95,9 @@ def _validate(st):
 def _validate_imagery(im, fail, is_num):
     if not isinstance(im, dict):
         fail("imagery must be an object")
+    extra = set(im) - {"patterns", "treatment", "harmonize", "max_bleed", "texture"}
+    if extra:
+        fail(f"imagery has unknown keys: {sorted(extra)}")
     pats = im.get("patterns")
     if not (isinstance(pats, list) and pats and all(p in PATTERNS for p in pats)):
         fail(f"imagery.patterns must be a non-empty list of {PATTERNS} (got: {pats!r})")
