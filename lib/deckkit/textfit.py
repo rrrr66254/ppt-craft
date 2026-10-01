@@ -33,7 +33,7 @@ class Measurer:
 def wrap(text, m, max_w):
     """Word-level (whitespace) line breaking. A word longer than a line is cut per character (same as PowerPoint)."""
     lines = []
-    for para in text.split("\n"):
+    for para in re.split("[\n\v]", text):  # \v is a line break inside one paragraph
         cur = ""
         for word in para.split():
             cand = f"{cur} {word}" if cur else word

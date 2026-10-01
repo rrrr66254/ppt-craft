@@ -332,9 +332,9 @@ def check_structure(deck, out):
         if len(bullets) >= 2:
             bullet_counts.append(len(bullets))
         frames = {}
-        for p in paras:
+        for p in bullets:  # W9 is about bullet lists: plain paragraphs (subtitle lines, credits) are not items
             frames.setdefault(p["frame"], []).append(len(p["text"]))
-        for lens in frames.values():  # only look at 3 or more paragraphs inside a single text box
+        for lens in frames.values():  # only look at 3 or more bullets inside a single text box
             if len(lens) >= 3 and statistics.mean(lens) >= 8 and statistics.pstdev(lens) / statistics.mean(lens) < 0.2:
                 _f(out, "W9", i, "Item lengths are too uniform")
                 break

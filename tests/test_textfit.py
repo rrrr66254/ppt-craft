@@ -86,3 +86,10 @@ def test_fit_applies_safety_to_width():
 
 def test_broken_word_uses_safety_margin():
     assert has_broken_word(["가" * 7], None, 20, 2.0, 0)  # 140pt > 144 x 0.95
+
+
+def test_vertical_tab_counts_as_a_line_without_paragraph_gap():
+    m = Measurer(None, 10)
+    assert wrap("가나\v다라", m, 1000) == ["가나", "다라"]
+    from deckkit.textfit import text_height
+    assert text_height(["가나\v다라"], m, 1000, 1.0, 5) == text_height(["가나", "다라"], m, 1000, 1.0, 0)

@@ -173,3 +173,16 @@ def test_text_size_override(tmp_path):
         d.text(s, (1, 1, 6, 2), "x", size=0)
     sh = Presentation(d.save(tmp_path / "t.pptx")).slides[0].shapes[0]
     assert sh.text_frame.paragraphs[0].runs[0].font.size.pt == 96
+
+
+def test_vertical_tab_is_a_line_break_inside_one_paragraph(tmp_path):
+    from pptx.oxml.ns import qn
+    d = Deck(STYLE)
+    s = d.slide("제목")
+    sh = d.text(s, (1, 2, 8, 3), ["첫 문장은 여기서\v끊고 이어집니다", "다음 문단"])
+    paras = sh.text_frame.paragraphs
+    assert len(paras) == 2
+    assert paras[0].text == "첫 문장은 여기서\v끊고 이어집니다"
+    assert [r.text for r in paras[0].runs] == ["첫 문장은 여기서", "끊고 이어집니다"]
+    br = paras[0]._p.findall(qn("a:br"))
+    assert len(br) == 1 and br[0].find(qn("a:rPr")).get("sz") == str(round(paras[0].runs[0].font.size.pt * 100))

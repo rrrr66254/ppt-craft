@@ -450,9 +450,13 @@ class Deck:
                 p.space_after = Pt(size * gap)
             if bullets:
                 _bullet(p, indent)
-            run = p.add_run()
-            run.text = text
-            self._run_props(run, family, size, is_bold, color, tracking)
+            for j, part in enumerate(text.split("\v")):  # \v = line break inside the paragraph
+                if j:
+                    p.add_line_break()
+                    etree.SubElement(p._p.findall(qn("a:br"))[-1], qn("a:rPr")).set("sz", str(round(size * 100)))
+                run = p.add_run()
+                run.text = part
+                self._run_props(run, family, size, is_bold, color, tracking)
 
     def _run_props(self, run, family, size, bold, color, tracking):
         font = run.font

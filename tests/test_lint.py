@@ -293,3 +293,18 @@ def test_w8_still_flags_real_keyword_explanation_lists(tmp_path):
     assert "W8" in _w8_rules(tmp_path, ["Speed: much faster than before", "Cost: far lower per request", "Risk: fewer surprises"])
     # a credit line mixed with prose lead-ins does not hide them
     assert "W8" in _w8_rules(tmp_path, ["Photo: x by y, Pexels, Pexels License", "Speed: much faster", "Cost: far lower"])
+
+
+def _w9_rules(tmp_path, lines, bullets):
+    d = Deck(STYLE)
+    s = d.slide("제목")
+    d.text(s, (1, 2, 8, 3), lines, bullets=bullets)
+    return _rules(lint.lint(d.save(tmp_path / "w9.pptx")))
+
+
+UNIFORM = ["서버를 열두 대로 늘렸다", "캐시를 두 겹으로 쌓았다", "로그를 하루씩 모았다"]
+
+
+def test_w9_flags_uniform_bullets_but_not_plain_paragraphs(tmp_path):
+    assert "W9" in _w9_rules(tmp_path, UNIFORM, bullets=True)
+    assert "W9" not in _w9_rules(tmp_path, UNIFORM, bullets=False)
