@@ -295,6 +295,9 @@ def test_w8_still_flags_real_keyword_explanation_lists(tmp_path):
     assert "W8" in _w8_rules(tmp_path, ["Photo: x by y, Pexels, Pexels License", "Speed: much faster", "Cost: far lower"])
 
 
+def test_w8_skips_clock_times(tmp_path):
+    assert "W8" not in _w8_rules(tmp_path, ["Started 16:00", "Started 12:00", "Hand-off at 17:00"])
+
 def _w9_rules(tmp_path, lines, bullets):
     d = Deck(STYLE)
     s = d.slide("제목")

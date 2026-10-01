@@ -50,7 +50,9 @@ TEMPLATE_TITLE = re.compile(r"^(agenda|목차|contents|key takeaways?|takeaways|
                             r"|감사합니다\.?|q\s?&\s?a|questions\??|질의\s?응답)$", re.I)
 # Credit lines from `assets.py credits` look like "keyword: explanation" but are not prose (W8 does not apply to them).
 CREDIT_LINE = re.compile(r"^(Photo|Icons?|AI-generated|사진|AI 생성)(?![A-Za-z])")
-LEAD_IN = re.compile(r"^(?!\d)(?!(?:출처|source|자료|참고|주|note)\s*[:：])[^:：]{1,24}[:：](?!//)\s*\S", re.I)
+# a clock time such as "Started 16:00" is not a lead-in: the colon must not sit between two digits
+LEAD_IN = re.compile(r"^(?!\d)(?!(?:출처|source|자료|참고|주|note)\s*[:：])[^:：]{1,24}[:：](?!//)(?!(?<=\d[:：])\d)\s*\S",
+                     re.I)
 TIME_COLON = re.compile(r"\d:\d")
 SMALL_WORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "with", "vs", "at", "by"}
 BULLET_CHARS = ("•", "●", "▪", "■", "◦")

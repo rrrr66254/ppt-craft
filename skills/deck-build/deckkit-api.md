@@ -81,6 +81,7 @@ tbl.first_row = tbl.horz_banding = False   # turn off the default table style (h
 for r, row in enumerate(rows):
     for c, value in enumerate(row):
         cell = tbl.cell(r, c)
+        cell.fill.background()   # no fill: the default table style would tint every cell
         cell.text = value
         for p in cell.text_frame.paragraphs:
             for run in p.runs:

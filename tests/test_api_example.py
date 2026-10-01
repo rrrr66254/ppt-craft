@@ -31,3 +31,17 @@ def test_image_slide_snippet_runs_and_is_clean(tmp_path, monkeypatch):
     exec(compile(code, "build.py", "exec"), {"d": d})
     res = lint.lint(d.save(tmp_path / "out.pptx"))
     assert [f for f in res["findings"] if f["severity"] in ("blocker", "major")] == []
+
+
+def test_table_snippet_leaves_cells_unfilled(tmp_path):
+    from deckkit import Deck
+    from pptx.oxml.ns import qn
+    doc = (ROOT / "skills" / "deck-build" / "deckkit-api.md").read_text(encoding="utf-8")
+    code = re.search(r"## Tables.*?```python\n(.*?)```", doc, re.S).group(1)
+    d = Deck(STYLE)
+    s = d.slide("표")
+    x, w = d.col(0, 8)
+    env = {"d": d, "s": s, "x": x, "w": w, "rows": [["항목", "값"], ["가", "1"]]}
+    exec(compile(code, "build.py", "exec"), env)
+    cells = list(env["tbl"]._tbl.iter(qn("a:tc")))
+    assert cells and all(tc.tcPr.find(qn("a:noFill")) is not None for tc in cells)
