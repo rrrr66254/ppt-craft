@@ -207,3 +207,76 @@ def test_figure_caption_number_when_layout_fell_back(tmp_path, capsys):
     assert any(t.startswith("그림 1.") for t in _texts(prs.slides[2]))
     prs, _ = _build(tmp_path, st, {**SAMPLE, "figure": FIGURE}, capsys)
     assert any(t.startswith("그림 2.") for t in _texts(prs.slides[2]))
+
+
+# ---- optional image slide (Plan 4) ----
+from helpers import ROOT  # noqa: E402
+
+PRESET_STYLES = sorted((ROOT / "presets").glob("*/style.json"))
+
+
+def _photo(path, size=(2400, 1350)):
+    """Photo-like: a quiet dark left half, a bright busy right half (the subject)."""
+    im = Image.new("RGB", size, (38, 44, 52))
+    w, h = size
+    im.paste((210, 190, 160), (w // 2, 0, w, h))
+    for x in range(w // 2, w, 40):
+        im.paste((120, 90, 60), (x, h // 4, x + 12, h * 3 // 4))
+    im.save(path)
+    return path
+
+
+def _pc_tags(slide):
+    return [sh.name for sh in slide.shapes if sh.name.startswith("pc:")]
+
+
+@pytest.mark.parametrize("style_path", PRESET_STYLES, ids=lambda p: p.parent.name)
+def test_image_slide_per_preset(tmp_path, style_path, capsys):
+    sample = {**SAMPLE, "image": str(_photo(tmp_path / "photo.jpg")), "image_focus": [0.55, 0.2, 0.95, 0.8],
+              "image_caption": "사진: 직접 촬영, 서울, 2026년 9월"}
+    st = sample_deck.resolve_fonts(style_path)
+    out = sample_deck.build(st, sample, tmp_path / "s.pptx")
+    capsys.readouterr()
+    prs = Presentation(out)
+    assert len(prs.slides) == 4
+    tags = _pc_tags(prs.slides[2])
+    assert tags and tags[0].split(":")[1] in st["imagery"]["patterns"] + ["bleed"], tags
+    bad = [f for f in lint.lint(out, style=style_path)["findings"] if f["severity"] in ("blocker", "major")]
+    assert bad == [], bad
+
+
+def test_no_image_keeps_three_slides(tmp_path, capsys):
+    prs, _ = _build(tmp_path, STYLE, SAMPLE, capsys)
+    assert len(prs.slides) == 3
+
+
+def test_type_only_suggestion_adds_no_image_slide(tmp_path, capsys):
+    style = {**STYLE, "imagery": {"patterns": ["type-only"]}}
+    sample = {**SAMPLE, "image": str(_photo(tmp_path / "photo.jpg"))}
+    prs, _ = _build(tmp_path, style, sample, capsys)
+    assert len(prs.slides) == 3
+
+
+def test_figure_suggestion_builds_contained_image_with_caption(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(sample_deck, "suggest", lambda *a, **k: [{"pattern": "figure", "reason": "", "params": {}}])
+    sample = {**SAMPLE, "image": str(_photo(tmp_path / "photo.jpg"))}
+    prs, _ = _build(tmp_path, STYLE, sample, capsys)
+    slide = prs.slides[2]
+    pics = [sh for sh in slide.shapes if sh.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(pics) == 1 and pics[0].name == "pc:figure"
+    assert "[출처 필요]" in _texts(slide)  # no image_caption: the D3 marker stands in for the provenance
+
+
+def test_image_slide_suggestion_inputs(tmp_path, capsys, monkeypatch):
+    seen = {}
+
+    def fake(image, role, words=0, **kw):
+        seen.update(image=image, role=role, words=words, **kw)
+        return [{"pattern": "split", "reason": "", "params": {"side": "right"}}]
+
+    monkeypatch.setattr(sample_deck, "suggest", fake)
+    sample = {**SAMPLE, "image": str(_photo(tmp_path / "photo.jpg", (1200, 900))), "image_focus": [0.1, 0.1, 0.4, 0.9]}
+    prs, _ = _build(tmp_path, STYLE, sample, capsys)
+    assert seen["image"] == {"type": "photo", "size": [1200, 900], "focus": [0.1, 0.1, 0.4, 0.9], "must_keep": None}
+    assert seen["role"] == "statement" and seen["words"] > 0
+    assert seen["imagery"]["patterns"] and _pc_tags(prs.slides[2]) == ["pc:split"]

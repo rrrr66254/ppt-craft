@@ -1,4 +1,4 @@
-"""Build 3 sample slides (cover, content, data) for a style candidate. Used for candidate comparison and preset thumbnails.
+"""Build 3 sample slides (cover, content, data) for a style candidate, plus an image slide when the sample has an image. Used for candidate comparison and preset thumbnails.
 Usage: python sample_deck.py <style.json> <sample.json> <out.pptx> [--font FONT]
 --font: build with the head/body font replaced (for font comparison).
 If a style font is not installed, it is replaced with an installed fallback and reported (samples only).
@@ -11,7 +11,10 @@ sample.json schema
             figure{categories, series, caption, kind, highlight, source, n}
                                       (body figure for the figure layout. Without it, falls back to the split body)
             source (body source; "[source needed]" if absent), image, image_focus,
+            image_caption (provenance line for the image slide; "[source needed]" if absent),
             chart.source / takeaway / highlight / kind / caption / n
+With image, a 4th slide after the content slide shows it in the first pattern deckkit.patterns.suggest() gives for a
+statement slide within style.imagery.patterns (claim as title, first point as body). type-only adds no slide.
 If the title and claim contain no Hangul, builds an English deck (Figure/Source labels)."""
 import argparse
 import json
@@ -19,7 +22,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from PIL import Image  # noqa: E402
+from pptx.util import Inches  # noqa: E402
+
 from deckkit import Deck, load_style  # noqa: E402
+from deckkit.patterns import suggest  # noqa: E402
 from deckkit.fonts import find_font_file  # noqa: E402
 from deckkit.textfit import SAFETY, Measurer, wrap  # noqa: E402
 
@@ -42,6 +49,7 @@ SPLIT_BLOCK = SPLIT_RULE_GAP + SPLIT_NUM_H + 0.05 + SPLIT_LABEL_H
 STMT_NUM_H, STMT_LABEL_H, STMT_GAP = 1.8, 0.4, 0.1            # statement: big number -> label
 STMT_BLOCK = STMT_NUM_H + STMT_GAP + STMT_LABEL_H
 STMT_NUM_SCALE = 1.6  # number size = head size x 1.6
+CAPTION_H = 0.35      # image caption line
 
 
 def resolve_fonts(style, font=None):
@@ -99,6 +107,8 @@ def build(style, sample, out):
     labels = LABELS[lang]
     _cover(d, s)
     _content(d, s, labels)
+    if s.get("image"):
+        _image_slide(d, s, labels)
     _data(d, s, labels)
     return d.save(out)
 
@@ -228,6 +238,38 @@ def _figure_content(d, slide, s, top, labels):
 _CONTENT = {"split": _split_content, "statement": _statement_content, "figure": _figure_content}
 
 
+def _image_slide(d, s, labels):
+    """One image slide in the first suggested pattern. figure/annotated are not d.pattern helpers: a contained picture
+    with a caption below it (no callout target in a sample). Bleed slides get no footer: it would sit on the photo."""
+    with Image.open(s["image"]) as im:
+        size = [im.width, im.height]
+    entry = {"type": "photo", "size": size, "focus": s.get("image_focus"), "must_keep": None}
+    body = s["points"][0]
+    words = len(s["claim"].split()) + len(body.split())
+    pick = suggest(entry, "statement", words=words, imagery=d.style["imagery"], bleed_used=d._bleeds)[0]
+    name = pick["pattern"]
+    caption = s.get("image_caption") or labels["need"]
+    if name == "type-only":
+        return
+    if name in ("figure", "annotated"):
+        slide = d.slide(s["claim"])
+        x, w = d.col(0, 8)
+        top, bottom = d.content_top, d.content_bottom - CAPTION_H - 0.1
+        pic = d._tag(d.image(slide, (x, top, w, bottom - top), s["image"], fit="contain"), "figure")
+        pic.left = Inches(x)
+        d.text(slide, (x, (pic.top + pic.height) / 914400 + 0.1, w, CAPTION_H), caption, "caption", color="muted")
+        x, w = d.col(8, 4)
+        box = (x, top, w, bottom - top)
+    else:
+        extra = {"caption": caption} if name == "inset" else {}
+        slide, box = d.pattern(name, s["claim"], s["image"], focus=entry["focus"], words=words, **pick["params"], **extra)
+    if box:
+        d.text(slide, box, body, "body", color=d.text_color)
+    d.notes(slide, caption)
+    if not name.startswith("bleed"):
+        d.footer(slide, s.get("meta", ""), len(d.prs.slides))
+
+
 def _data(d, s, labels):
     c = s["chart"]
     slide = d.slide(c["title"])
@@ -251,7 +293,7 @@ def _data(d, s, labels):
         if c.get("takeaway"):
             x, w = d.col(9, 3)
             d.text(slide, (x, top, w, h), c["takeaway"], "governing", anchor="middle")
-    d.footer(slide, s.get("meta", ""), 3)
+    d.footer(slide, s.get("meta", ""), len(d.prs.slides))
 
 
 def main(argv=None):
