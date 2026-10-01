@@ -45,3 +45,14 @@ def test_sheet_labels_shorter_than_rows(tmp_path):
     Image.new("RGB", (960, 540), "white").save(p)
     out = make_sheet([[p], [p], [p]], tmp_path / "cmp.png", labels=["A"])
     assert Image.open(out).height == 16 + 3 * (270 + 16)
+
+
+def test_sheet_label_column_fits_long_labels(tmp_path):
+    p = tmp_path / "a.png"
+    Image.new("RGB", (960, 540), "white").save(p)
+    out = make_sheet([[p], [p]], tmp_path / "cmp.png", labels=["treat", "pattern"])
+    im = Image.open(out).convert("RGB")
+    first_thumb_x = im.width - 16 - 480
+    from PIL import ImageFont
+    text_end = 16 + ImageFont.load_default(size=22).getlength("pattern")
+    assert text_end + 8 <= first_thumb_x  # the label stays clear of the first thumbnail

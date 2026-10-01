@@ -214,3 +214,71 @@ def test_texture_cli_requires_png_and_wraps_save_errors(tmp_path, capsys):
     blocker.write_text("x")
     assert imagefx.main(["texture", "--kind", "dots", "--style", sp, "--out", str(blocker / "t.png")]) == 1
     assert "[imagefx] error" in capsys.readouterr().err
+
+
+# ---- compare (Plan 4 Task 8) ----
+from pptx import Presentation  # noqa: E402
+
+
+def _bg_photo(path):
+    im = Image.new("RGB", (2400, 1350), (30, 36, 44))
+    im.paste((215, 195, 160), (1500, 0, 2400, 1350))
+    im.save(path)
+    return path
+
+
+def _fake_render(calls):
+    def render(src, out_dir, width=1600, sheet=False, backend=None):
+        calls.append((src, out_dir, width))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        slides = []
+        for i in range(len(Presentation(str(src)).slides)):
+            p = out_dir / f"slide-{i + 1:02d}.png"
+            Image.new("RGB", (960, 540), (i * 30, 90, 120)).save(p)
+            slides.append(str(p))
+        return {"backend": "fake", "slides": slides}
+    return render
+
+
+def test_compare_builds_seven_slides_and_sheet(tmp_path, monkeypatch, capsys):
+    import render
+    calls = []
+    monkeypatch.setattr(render, "render", _fake_render(calls))
+    style = _write_style(tmp_path, {**STYLE, "imagery": {"patterns": ["type-only"]}})  # compare ignores imagery.patterns
+    out = tmp_path / "cmp"
+    rc = imagefx.main(["compare", str(_bg_photo(tmp_path / "photo.jpg")), "--style", style, "--out", str(out),
+                       "--focus", "0.65", "0.1", "1.0", "0.9"])
+    cap = capsys.readouterr()
+    assert rc == 0, cap.err
+    png = out / "compare.png"
+    assert cap.out.strip().splitlines()[-1] == str(png) and png.exists()
+    prs = Presentation(str(out / "compare.pptx"))
+    titles = [s.shapes.title.text_frame.text if s.shapes.title else
+              next(sh.text_frame.text for sh in s.shapes if sh.has_text_frame and sh.text_frame.text)
+              for s in prs.slides]
+    assert titles == ["none", "harmonize", "gray", "duotone", "bleed-panel", "bleed-scrim", "split"]
+    tags = [{sh.name for sh in s.shapes if sh.name.startswith("pc:")} for s in prs.slides]
+    assert all("pc:bleed-panel" in t for t in tags[:5])
+    assert "pc:bleed-scrim" in tags[5] and "pc:split" in tags[6]
+    for mode in ("harmonize", "gray", "duotone"):
+        assert (out / "treated" / f"photo-{mode}.jpg").exists()
+    assert len(calls) == 1 and calls[0][1] == out / "renders"
+    with Image.open(png) as sheet:  # 2 labelled rows of 480px-wide thumbs, 4 columns
+        assert sheet.height == 16 + 2 * (270 + 16) and sheet.width > 4 * (480 + 16)
+
+
+def test_compare_without_renderer_exits_2(tmp_path, monkeypatch, capsys):
+    import render
+
+    def missing(*a, **k):
+        raise render.RendererMissing(render.INSTALL_HELP)
+
+    monkeypatch.setattr(render, "render", missing)
+    rc = imagefx.main(["compare", str(_bg_photo(tmp_path / "photo.jpg")), "--style", _write_style(tmp_path),
+                       "--out", str(tmp_path / "cmp")])
+    assert rc == 2 and "No renderer found" in capsys.readouterr().err
+
+
+def test_compare_missing_photo_exits_1(tmp_path, capsys):
+    rc = imagefx.main(["compare", str(tmp_path / "nope.jpg"), "--style", _write_style(tmp_path), "--out", str(tmp_path / "c")])
+    assert rc == 1 and "[imagefx]" in capsys.readouterr().err

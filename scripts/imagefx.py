@@ -2,10 +2,14 @@
 Usage:
   python imagefx.py treat <image...> --mode harmonize|gray|duotone|tone --style style.json --out <W>/assets/treated
   python imagefx.py texture --kind paper|grain|dots|grid --opacity 0.06 --style style.json --out <W>/assets/texture-paper.png
+  python imagefx.py compare <photo> --style style.json --out <W>/candidates/imagery [--focus x0 y0 x1 y1]
 treat writes <stem>-<mode>.jpg (.png when the image has alpha) into --out and never touches the source.
 duotone uses the style's ink (dark) and bg (light); if they are too close it falls back to gray.
 texture needs a .png --out; --kind/--opacity default to the style's imagery.texture; the size follows the canvas ratio.
-Exit codes: 0 ok, 1 processing error, 2 usage error."""
+compare builds compare.pptx (4 treatments none/harmonize/gray/duotone as bleed-panel slides, then the patterns
+bleed-panel/bleed-scrim/split), renders it and writes compare.png (rows "treat" and "pattern"), then prints its path.
+It ignores imagery.patterns (it is what the user chooses them from).
+Exit codes: 0 ok, 1 processing error, 2 usage error (compare: also no renderer)."""
 import argparse
 import os
 import random
@@ -15,8 +19,9 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageEnhance, ImageOps
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from deckkit import Deck  # noqa: E402
 from deckkit.legibility import AA_BODY, contrast, hex_rgb, rel_luminance  # noqa: E402
-from deckkit.style import TEXTURES, load_style  # noqa: E402
+from deckkit.style import PATTERNS, TEXTURES, load_style  # noqa: E402
 
 MODES = ("harmonize", "gray", "duotone", "tone")
 MAX_TEXTURE_OPACITY = 0.1
@@ -126,6 +131,34 @@ def treat_file(src, mode, style, out_dir, warn=True):
     return dst
 
 
+COMPARE_TREATMENTS = ("none", "harmonize", "gray", "duotone")
+COMPARE_PATTERNS = ("bleed-panel", "bleed-scrim", "split")
+COMPARE_BODY = "Body text sits on this side"
+
+
+def compare(photo, style, out_dir, focus=None):
+    """Build, render and sheet the imagery comparison. Returns the compare.png path.
+    Raises render.RendererMissing when no renderer is available."""
+    import render  # looked up at call time so tests can replace render.render
+    from sheet import make_sheet
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    st = {**style, "imagery": {**style["imagery"], "patterns": list(PATTERNS), "max_bleed": 20}}
+    d = Deck(st, lang="en")
+    for mode in COMPARE_TREATMENTS:
+        path = photo if mode == "none" else treat_file(photo, mode, st, out_dir / "treated")
+        d.pattern("bleed-panel", mode, path, focus=focus)
+    for name in COMPARE_PATTERNS:
+        slide, box = d.pattern(name, name, photo, focus=focus, words=len(COMPARE_BODY.split()))
+        if box:
+            d.text(slide, box, COMPARE_BODY, "body", color=d.text_color)
+    pptx = d.save(out_dir / "compare.pptx")
+    slides = render.render(pptx, out_dir / "renders", width=960)["slides"]
+    n = len(COMPARE_TREATMENTS)
+    return make_sheet([slides[:n], slides[n:]], out_dir / "compare.png", labels=["treat", "pattern"])
+
+
 def _key(path):
     return os.path.normcase(str(Path(path).resolve()))
 
@@ -143,6 +176,11 @@ def main(argv=None):
     x.add_argument("--opacity", type=float)
     x.add_argument("--style", required=True)
     x.add_argument("--out", required=True)
+    c = sub.add_parser("compare")
+    c.add_argument("photo")
+    c.add_argument("--style", required=True)
+    c.add_argument("--out", required=True)
+    c.add_argument("--focus", nargs=4, type=float, metavar=("X0", "Y0", "X1", "Y1"))
     a = ap.parse_args(argv)  # argparse exits with 2 on usage errors
     try:
         style = load_style(a.style)
@@ -151,6 +189,8 @@ def main(argv=None):
         return 2
     if a.cmd == "texture":
         return _texture_cmd(a, style)
+    if a.cmd == "compare":
+        return _compare_cmd(a, style)
     if a.mode == "duotone" and _duotone_too_close(style):
         _warn(DUOTONE_WARNING)
     out_dir = Path(a.out)
@@ -177,6 +217,19 @@ def main(argv=None):
         written[stem_key] = dst
         print(dst)
     return 1 if failed else 0
+
+
+def _compare_cmd(a, style):
+    import render
+    try:
+        print(compare(a.photo, style, a.out, focus=a.focus))
+    except render.RendererMissing:
+        print(render.INSTALL_HELP, file=sys.stderr)
+        return 2
+    except Exception as e:  # render failures, a broken photo, a locked output file
+        print(f"[imagefx] compare failed: {e}", file=sys.stderr)
+        return 1
+    return 0
 
 
 def _texture_cmd(a, style):

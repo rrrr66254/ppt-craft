@@ -27,12 +27,12 @@ def make_sheet(rows, out, labels=None, thumb_w=480, gap=16, numbered=False):
     rows = [[_thumb(p, thumb_w) for p in row] for row, _ in pairs]
     labels = [lab for _, lab in pairs] if labels else None
     thumb_h = max(im.height for row in rows for im in row)
-    label_w = 56 if labels else 0
+    font = ImageFont.load_default(size=22)
+    label_w = max(56, round(max(font.getlength(str(lab)) for lab in labels)) + 24) if labels else 0
     ncols = max(len(r) for r in rows)
     sheet = Image.new("RGB", (label_w + gap + ncols * (thumb_w + gap), gap + len(rows) * (thumb_h + gap)),
                       (232, 232, 232))
     draw = ImageDraw.Draw(sheet)
-    font = ImageFont.load_default(size=22)
     n = 1
     for r, row in enumerate(rows):
         y = gap + r * (thumb_h + gap)
