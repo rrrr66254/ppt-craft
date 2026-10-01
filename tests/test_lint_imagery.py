@@ -68,6 +68,18 @@ def test_l24_at_limit_and_style_limit(tmp_path, photo):
     assert _hits(_rules(path, _style_file(tmp_path, max_bleed=1)), "L24")
 
 
+def test_l24_matches_bleed_prefix_and_skips_texture(tmp_path, photo):
+    tex = tmp_path / "tex.png"
+    Image.new("RGBA", (1920, 1080), (17, 17, 17, 12)).save(tex)
+    d = Deck(STYLE)
+    for tag in ("bleed", "bleed-panel", "bleed-scrim", "texture"):
+        d.background(d.slide(f"배경 {tag}"), tex if tag == "texture" else photo, pattern=tag)
+    path = d.save(tmp_path / "tags.pptx")
+    assert not _hits(_rules(path), "L24")  # 3 bleeds; the texture does not count
+    hits = _hits(_rules(path, _style_file(tmp_path, max_bleed=2)), "L24")
+    assert hits and "[1, 2, 3]" in hits[0]["message"]
+
+
 # ---- C13: texture on more than one slide ----
 def _textures(tmp_path, n):
     tex = tmp_path / "tex.png"
