@@ -4,7 +4,7 @@ The single source shared by build, lint, and review.
 
 Severity (lint baseline):
 - blocker: W14, I3, T12
-- major: L2, L6, C1, C6, D3, D5, S1, T11
+- major: L2, L6, L24, C1, C6, C12, D3, D5, S1, T11
 - Everything else is minor. Review uses this table as a floor; items whose grade is written in checklist.md follow that grade.
 
 ## 0. Core principles (research conclusions)
@@ -20,7 +20,8 @@ Severity (lint baseline):
    - Text and shapes overlap
    - Translationese sentences
    - Hangul font substitution and garbling
-5. **Prior art**: [jkkms/ppt-deck](https://github.com/jkkms/ppt-deck) is a Korean PPT skill with the linter rules [CLICHE] [PARALLEL] [UNIFORM] [SENTENCE], worth a look.
+5. **Imagery is evidence, used with restraint.** An image goes in only when it proves the slide's point (H2, H7, I8); a type-only slide is always allowed. Every photo in a deck gets the same treatment (I12). Scrims are solid and translucent, never gradients (C1). Full-bleed slides stay within `imagery.max_bleed` (L24), and the same placement pattern is used at most 2 slides in a row (L2).
+6. **Prior art**: [jkkms/ppt-deck](https://github.com/jkkms/ppt-deck) is a Korean PPT skill with the linter rules [CLICHE] [PARALLEL] [UNIFORM] [SENTENCE], worth a look.
 
 ---
 
@@ -44,6 +45,14 @@ Severity (lint baseline):
 | L14 | Text, photos, and shapes overlap each other | Place by grid coordinates and confirm with render review |
 | L15 | Chapter name, title, and subtitle sit in different places per slide, and the lower part of the body is empty | Pin the title area to the same place on every slide. Fill the body area in balance |
 | L16 | Tacky shadows and misaligned boxes (the typical python-pptx output) | No shadows. Snap every box to the grid |
+| L17 | A grid or bento with empty cells, or with every cell the same size | Cell count = item count, and cell sizes follow the real weight of each item |
+| L18 | Meaningless decoration (numbers, ornaments, badges) | Remove it, or tie it to a real fact (chapter, date, edition) |
+| L19 | An image slide with more than 4 elements, or a title over 2 lines. Not counted: the image itself, scrims and panels, footer and page number, caption and source lines | Cut it down |
+| L20 | The same spacing everywhere, instead of tight within a group and loose between groups | Group by spacing. More space above a title than below it |
+| L21 | 01/02/03 numbering on items that have no order | Remove |
+| L22 | A category label or a text wordmark on a logo slide | Logos only |
+| L23 | A plain list of 6 or more bullets | Group them, split them into columns, or split the slide |
+| L24 | More full-bleed background slides than `imagery.max_bleed` (default 3) | Cut down. Use split or inset instead |
 
 ## C. Color and effects
 
@@ -60,6 +69,10 @@ Severity (lint baseline):
 | C9 | The accent color used on any word, bar, or icon | Accent only in the one place the audience should look |
 | C10 | 4 or more colors on one slide | Background 60 : body 30 : accent 10. 3 colors or fewer per slide |
 | C11 | A palette so perfect it fits no brand | Derive it from a reference or the brand |
+| C12 | Pure #000 text | A deep ink that leans toward the palette |
+| C13 | A texture above 0.1 opacity, a texture on several slides, or a texture over a textured theme | One cover or section slide, opacity 0.1 or less |
+| C14 | A decorative background where the accent covers more than 5% of the area, or uses several accents | A flat solid area |
+| C15 | Gray text on a colored area | Text tinted toward the area's color |
 
 ## T. Typography
 
@@ -80,6 +93,7 @@ Severity (lint baseline):
 | T13 | Default Hangul tracking looks wide and "loose" | Titles -2 to -4%, body -1 to -2% |
 | T14 | Line spacing of 1.0 looks cramped | Body 1.3-1.5x |
 | T15 | A short particle or a single word left alone on the last line | Adjust box width or line breaks (confirm with render review) |
+| T16 | A monospace font used to "look technical" | Mono only for code and data |
 
 ## I. Icons and images
 
@@ -94,6 +108,10 @@ Severity (lint baseline):
 | I7 | The same illustration style applied to every concept (Gamma) | The image should come from the topic |
 | I8 | An image unrelated to the slide's claim | If you cannot answer "What does this image prove?", remove it |
 | I9 | Unicode arrows and symbols in body text (a chain of → ≈ ✓) | Write words, or use native connector shapes |
+| I10 | A circle, polygon, or gradient mask that imitates the outline of a person or object | A real cutout, or none at all |
+| I11 | A hand-drawn fake browser, phone, or IDE frame | The real screenshot with a hairline border |
+| I12 | Each photo has its own tone and saturation | One treatment for the whole deck (`imagery.treatment`) |
+| I13 | A figure or photo with no caption or source | A caption with source, date, and place |
 
 ## W. Writing (English)
 
@@ -113,6 +131,8 @@ Severity (lint baseline):
 | W12 | Vague sources such as "Studies show", "Experts agree" | State the source in small type |
 | W13 | Inflated significance such as "serves as a pivotal…", "marks a shift" | "is" |
 | W14 | Leftover instructions and placeholders ("[Insert data]", "Add your logo here") | Fail immediately when found (hard fail) |
+| W15 | Straight quotes, `--`, or three periods in an English deck | Curly quotes, an en dash for ranges, the ellipsis character |
+| W16 | Fake names such as John Doe or Acme, or startup-style product names | Real names |
 
 ## K. Writing (Korean)
 
@@ -165,6 +185,7 @@ The terse "~함/~임" report style (개조식) is itself a Korean report convent
 | D6 | A decorative chart with no axis labels, units, or source, titled something like "Growth Trends" | A headline that states the conclusion, axis labels, a source, and only the key series emphasized |
 | D7 | A smoothly rising curve or hockey stick with no data points | Plot the real points |
 | D8 | A single percentage shown as a donut or ring infographic | Write it as text, or give it something to compare against |
+| D9 | A table with a rule under every row | Separate rows with spacing and emphasize only the key rows |
 
 
 ## H. Human-touch signals (apply these)

@@ -11,5 +11,6 @@
   "layout": "figure",
   "motifs": ["Figure number and caption (Figure 1.)", "Always a source line", "Section number at top left"],
   "avoid": ["L1", "I1", "I4", "D6"],
+  "imagery": {"patterns": ["figure", "inset", "annotated", "split", "gallery", "type-only"], "treatment": "none", "harmonize": true, "texture": null, "max_bleed": 1},
   "source": "preset:academic-figure"
 }

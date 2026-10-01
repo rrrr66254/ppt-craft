@@ -26,6 +26,16 @@ def test_presets_differ():
     assert len(layouts) == len(PRESETS)
 
 
+def test_preset_imagery_differs():
+    im = {p.name: load_style(p / "style.json")["imagery"] for p in PRESETS}
+    assert len({tuple(v["patterns"]) for v in im.values()}) == len(PRESETS)
+    assert im["keynote-type"]["max_bleed"] == 3 and "bleed-scrim" in im["keynote-type"]["patterns"]
+    for name in ("academic-figure", "report-grid"):
+        assert im[name]["max_bleed"] == 1
+    for v in im.values():
+        assert "type-only" in v["patterns"] and v["treatment"] == "none" and v["harmonize"] is True
+
+
 def test_sample_json_has_required_keys():
     s = json.loads((ROOT / "presets" / "_sample.json").read_text(encoding="utf-8"))
     for k in ("title", "claim", "points", "number", "chart", "source", "meta"):

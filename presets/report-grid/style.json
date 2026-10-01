@@ -11,5 +11,6 @@
   "layout": "split",
   "motifs": ["Title area in a fixed position", "Big number + small caption", "Tables with horizontal rules only"],
   "avoid": ["L1", "L5", "L6", "C1", "C3"],
+  "imagery": {"patterns": ["split", "inset", "figure", "annotated", "gallery", "type-only"], "treatment": "none", "harmonize": true, "texture": null, "max_bleed": 1},
   "source": "preset:report-grid"
 }
