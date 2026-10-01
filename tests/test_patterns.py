@@ -323,28 +323,61 @@ def test_gallery_n_cells_one_row_same_crop(d, tmp_path, n):
     assert [p.left for p in pics] == sorted(p.left for p in pics)
 
 
-@pytest.mark.parametrize("n", [2, 3, 4])
-def test_gallery_hero_is_wider(d, tmp_path, n):
+def _gallery(d, tmp_path, n, hero, captions=True):
     paths = [_photo(tmp_path, f"g{i}.jpg") for i in range(n)]
-    s, _ = d.pattern("gallery", "Gallery", paths, hero=1, captions=["a"] * n)
+    caps = [f"c{i}" for i in range(n)] if captions else None
+    s, _ = d.pattern("gallery", "Gallery", paths, hero=hero, captions=caps)
     pics = [sh for sh in s.shapes if sh.name == "pc:gallery"]
-    assert pics[1].width > max(p.width for i, p in enumerate(pics) if i != 1) * 1.9
-    assert pics[-1].left + pics[-1].width <= Emu(round((d.W - d.m) * EMU)) + 2
+    texts = {sh.text_frame.text: sh for sh in s.shapes if sh.has_text_frame and sh.text_frame.text.startswith("c")}
+    return pics, [texts[c] for c in (caps or [])]
 
 
-@pytest.mark.parametrize("n,hero", [(2, None), (3, None), (4, None), (2, 0), (3, 1), (4, 0), (4, 3)])
-def test_gallery_one_crop_ratio_for_every_cell(d, tmp_path, n, hero):
-    paths = [_photo(tmp_path, f"g{i}.jpg") for i in range(n)]
-    s, _ = d.pattern("gallery", "Gallery", paths, hero=hero, captions=[f"c{i}" for i in range(n)])
-    pics = [sh for sh in s.shapes if sh.name == "pc:gallery"]
-    ratios = [p.width / p.height for p in pics]
-    assert max(ratios) == pytest.approx(min(ratios), rel=1e-3)
-    assert len({p.top for p in pics}) == 1  # top-aligned
-    caps = [sh for sh in s.shapes if sh.has_text_frame and sh.text_frame.text in {f"c{i}" for i in range(n)}]
-    assert len(caps) == n
+def _bottom(shape):
+    return (shape.top + shape.height) / EMU
+
+
+@pytest.mark.parametrize("n,hero", [(2, 0), (3, 0), (3, 1), (3, 2)])
+def test_gallery_hero_stacks_the_others_beside_it_to_the_same_height(d, tmp_path, n, hero):
+    pics, caps = _gallery(d, tmp_path, n, hero)
+    h = pics[hero]
+    others = [pics[i] for i in range(n) if i != hero]
+    top = d.content_top
+    assert h.top / EMU == pytest.approx(top) and others[0].top / EMU == pytest.approx(top)
+    # one column of equal cells beside the hero, in list order
+    assert len({o.left for o in others}) == 1 and len({(o.width, o.height) for o in others}) == 1
+    assert [o.top for o in others] == sorted(o.top for o in others)
+    left_hero = hero != n - 1
+    assert (h.left < others[0].left) == left_hero
+    assert h.left / EMU == pytest.approx(d.col(0, 8)[0] if left_hero else d.col(4, 8)[0])
+    assert others[0].left / EMU == pytest.approx(d.col(8, 4)[0] if left_hero else d.col(0, 4)[0])
+    assert h.width > 1.9 * others[0].width
+    # captions under every cell, and the stack ends where the hero (with its caption) ends
     for pic, cap in zip(pics, caps):
         assert cap.top >= pic.top + pic.height and cap.left == pic.left
-        assert (cap.top + cap.height) / EMU <= d.content_bottom + 1e-3
+        assert _bottom(cap) <= d.content_bottom + 1e-3
+    last_other = max(i for i in range(n) if i != hero)
+    assert _bottom(caps[hero]) == pytest.approx(_bottom(caps[last_other]), abs=1e-3)
+    assert _bottom(caps[hero]) == pytest.approx(d.content_bottom, abs=0.01)
+
+
+def test_gallery_hero_without_captions_fills_the_height(d, tmp_path):
+    pics, _ = _gallery(d, tmp_path, 3, 0, captions=False)
+    others = pics[1:]
+    assert len({o.left for o in others}) == 1 and _bottom(others[-1]) == pytest.approx(_bottom(pics[0]), abs=1e-3)
+    assert _bottom(pics[0]) == pytest.approx(d.content_bottom, abs=1e-3)
+
+
+def test_gallery_hero_of_four_has_no_room_and_falls_back_to_equal_cells(d, tmp_path):
+    pics, _ = _gallery(d, tmp_path, 4, 0)
+    assert len({(p.top, p.width, p.height) for p in pics}) == 1  # the equal row
+    assert any("hero" in w and "equal" in w for w in d.warnings)
+
+
+@pytest.mark.parametrize("n", [2, 3, 4])
+def test_gallery_without_hero_is_one_row_of_equal_cells(d, tmp_path, n):
+    pics, _ = _gallery(d, tmp_path, n, None)
+    assert len({(p.top, p.width, p.height) for p in pics}) == 1
+    assert [p.left for p in pics] == sorted(p.left for p in pics)
 
 
 def test_gallery_count_limits(d, tmp_path):

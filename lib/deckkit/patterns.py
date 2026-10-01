@@ -16,7 +16,7 @@ split         photo half-bleed (full height, to the slide edge) in its columns, 
               the content area. d.footer keeps itself on the text side.
 inset         photo inside the margins with a required caption line (I13).
 strip         full-width band, at most 40% of the slide height.
-gallery       2-4 cells in one row, one crop ratio for all (hero is bigger, top-aligned), optional captions.
+gallery       2-4 equal cells in one row; with a hero, the others stack beside it to the same height; captions.
 """
 from pathlib import Path
 
@@ -34,7 +34,6 @@ _BODY_H = 1.2          # room reserved for a short body line over a bleed-scrim
 MIN_SCRIM = 0.35      # spec 2: a scrim reads as intentional from 0.35 up; more alpha never lowers contrast
 _PAD = 0.3             # scrim padding around the text box
 _CAPTION_H = 0.35
-_HERO_SPANS = {2: (8, 4), 3: (6, 3), 4: (6, 2)}  # gallery columns for (hero, other)
 
 
 def _allow(d, name):
@@ -301,8 +300,35 @@ def strip(d, title, path, *, focus=None, must_keep=None, position="bottom", heig
     return _finish(d, s, (x, top, w, bottom - top))
 
 
+def _row_cells(d, n, avail):
+    """Equal cells in one row, top-aligned: (x, y, w, h) image boxes sharing one crop ratio."""
+    cells = [d.col(i * (12 // n), 12 // n) for i in range(n)]
+    ratio = max(1.2, cells[0][1] / avail)
+    return [(x, d.content_top, w, w / ratio) for x, w in cells]
+
+
+def _hero_cells(d, n, hero, cap):
+    """Hero (8 columns, full height) with the other images stacked in one 4-column column beside it, so both end at
+    the same height. The hero sits on the left unless it is the last image. None if the stacked cells would be too
+    wide or too narrow a crop (ratio outside 0.6..2.5)."""
+    top, total, k, gap = d.content_top, d.content_bottom - d.content_top, n - 1, 0.25
+    h_other = (total - (k - 1) * gap) / k - cap
+    hero_left = hero != n - 1
+    hx, hw = d.col(0 if hero_left else 4, 8)
+    ox, ow = d.col(8 if hero_left else 0, 4)
+    if h_other <= 0 or not 0.6 <= ow / h_other <= 2.5:
+        return None
+    cells = {hero: (hx, top, hw, total - cap)}
+    for j, i in enumerate(i for i in range(n) if i != hero):
+        cells[i] = (ox, top + j * (h_other + cap + gap), ow, h_other)
+    return [cells[i] for i in range(n)]
+
+
 def gallery(d, title, paths, *, captions=None, hero=None, focus=None, must_keep=None, words=0):
-    """2-4 images as N cells in one row, one crop ratio for all, top-aligned. hero = index of the bigger cell.
+    """2-4 images. Without hero: N equal cells in one row (one crop ratio). With hero: that image is big (8 columns,
+    full height) and the others are stacked beside it in one equal-cell column, so the slide has no empty quarter;
+    the hero sits on the left unless it is the last image. If the stack would need a crop outside 0.6..2.5 (4 images
+    with captions), it warns and uses the equal row. Captions go under each cell.
     focus / must_keep: one region for all images or a list with one entry per image. words is ignored."""
     _allow(d, "gallery")
     paths = list(paths)
@@ -313,23 +339,19 @@ def gallery(d, title, paths, *, captions=None, hero=None, focus=None, must_keep=
         raise ValueError(f"hero must be an image index from 0 to {n - 1} (got: {hero})")
     if captions is not None and len(captions) != n:
         raise ValueError(f"captions must have one entry per image ({n}), got {len(captions)}")
-    spans = [12 // n] * n
-    if hero is not None:
-        wide, narrow = _HERO_SPANS[n]
-        spans = [wide if i == hero else narrow for i in range(n)]
     focus, must_keep = _per_image(focus, n, "focus"), _per_image(must_keep, n, "must_keep")
+    cap = _CAPTION_H + 0.1 if captions else 0.0
+    cells = None
+    if hero is not None:
+        cells = _hero_cells(d, n, hero, cap)
+        if cells is None:
+            d._warn(f"Gallery hero with {n} images has no room to stack the others; using equal cells.")
+    cells = cells or _row_cells(d, n, d.content_bottom - d.content_top - _CAPTION_H - 0.1)
     s = d.slide(title)
-    top, avail = d.content_top, d.content_bottom - d.content_top - _CAPTION_H - 0.1
-    cells, start = [], 0
-    for span in spans:
-        cells.append(d.col(start, span))
-        start += span
-    ratio = max(1.2, max(w for _, w in cells) / avail)  # one crop ratio; the widest cell just fits the height
-    for i, (path, (x, w)) in enumerate(zip(paths, cells)):
-        h = w / ratio
-        d._tag(d.image(s, (x, top, w, h), path, focus=focus[i], must_keep=must_keep[i]), "gallery")
+    for i, (path, (x, y, w, h)) in enumerate(zip(paths, cells)):
+        d._tag(d.image(s, (x, y, w, h), path, focus=focus[i], must_keep=must_keep[i]), "gallery")
         if captions:
-            d.text(s, (x, top + h + 0.1, w, _CAPTION_H), captions[i], "caption", color="muted")
+            d.text(s, (x, y + h + 0.1, w, _CAPTION_H), captions[i], "caption", color="muted")
     if not captions:
         d._warn("Gallery without captions: add source/date/place for each image (I13).")
     return _finish(d, s, None)
