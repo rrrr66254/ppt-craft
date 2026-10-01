@@ -107,6 +107,19 @@ def test_bleed_scrim_gray_photo_adds_scrim_with_planned_alpha(d, tmp_path):
     assert "#" + scrim_rgb == STYLE["color"][opposite].upper()  # scrim colour is opposite the text colour
 
 
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_bleed_scrim_is_a_full_height_band_from_the_text_side_edge(d, tmp_path, side):
+    s, _ = d.pattern("bleed-scrim", "Band", _two_tone(tmp_path), side=side)
+    scrim = next(sh for sh in s.shapes if sh.name == "pc:scrim")
+    x, y, w, h = _inches(scrim)
+    tx, tw = d.col(0 if side == "left" else 5, 7)
+    assert (y, h) == pytest.approx((0, d.H), abs=1e-3)
+    if side == "left":
+        assert (x, x + w) == pytest.approx((0, tx + tw + 0.3), abs=1e-3)
+    else:
+        assert (x, x + w) == pytest.approx((tx - 0.3, d.W), abs=1e-3)
+
+
 def test_bleed_scrim_falls_back_to_panel_when_palette_cannot_reach_contrast(tmp_path):
     low = {**STYLE, "color": {**STYLE["color"], "ink": "#777777", "bg": "#888888"}}
     d = Deck(low)
@@ -171,23 +184,52 @@ def test_bleed_scrim_samples_raw_pixels_not_exif_rotated(d, tmp_path):
 
 # ---- split ----
 @pytest.mark.parametrize("focus,text_right", [((0.0, 0.0, 0.3, 1.0), True), ((0.7, 0.0, 1.0, 1.0), False), (None, False)])
-def test_split_text_opposite_focus(d, tmp_path, focus, text_right):
+def test_split_is_a_half_bleed_opposite_the_focus(d, tmp_path, focus, text_right):
     s, box = d.pattern("split", "Split", _photo(tmp_path), focus=focus)
     _check_box(d, box)
     assert (box[0], box[2]) == pytest.approx(d.col(5, 7) if text_right else d.col(0, 7))
     pic = next(sh for sh in s.shapes if sh.name == "pc:split")
-    assert _on_grid(d, pic.left / EMU) and _inside(d, _inches(pic))
-    assert (box[0] > pic.left / EMU) == text_right
+    x, y, w, h = _inches(pic)
+    assert (y, h) == pytest.approx((0, d.H), abs=1e-3)  # full slide height
+    if text_right:   # image left: from the slide edge to the image columns' far grid edge
+        assert (x, x + w) == pytest.approx((0, sum(d.col(0, 5))), abs=1e-3)
+    else:            # image right: from the image columns' grid edge to the slide edge
+        assert (x, x + w) == pytest.approx((d.col(7, 5)[0], d.W), abs=1e-3)
+    assert _on_grid(d, x) or x == 0
+
+
+def test_split_title_is_confined_to_the_text_columns(d, tmp_path):
+    long_title = "사진 옆에 놓인 아주 긴 제목은 사진 아래로 흘러 들어가면 안 된다"
+    for side in ("left", "right"):
+        s, box = d.pattern("split", long_title, _photo(tmp_path), side=side)
+        title = s.shapes.title
+        assert (title.left / EMU, title.width / EMU) == pytest.approx((box[0], box[2]), abs=1e-3)
 
 
 def test_split_ratio_and_tall_image_gets_narrow_part(d, tmp_path):
     s, box = d.pattern("split", "Wide", _photo(tmp_path), ratio=(5, 7), side="left")
     pic = next(sh for sh in s.shapes if sh.name == "pc:split")
-    assert pic.width / EMU == pytest.approx(d.col(0, 5)[1])
+    assert pic.left / EMU == pytest.approx(d.col(7, 5)[0])
     s, box = d.pattern("split", "Tall", _photo(tmp_path, "t.jpg", (1000, 1600)), ratio=(8, 4), side="left")
     pic = next(sh for sh in s.shapes if sh.name == "pc:split")
-    assert pic.width / EMU == pytest.approx(d.col(0, 4)[1])
+    assert pic.left / EMU == pytest.approx(d.col(8, 4)[0])  # tall photo: the 4-column part
     assert box[2] == pytest.approx(d.col(0, 8)[1])
+
+
+def test_split_cover_crop_follows_focus_in_the_half_bleed_box(d, tmp_path):
+    s, _ = d.pattern("split", "Crop", _photo(tmp_path, size=(3000, 1000)), focus=(0.0, 0.0, 0.2, 1.0), side="right")
+    pic = next(sh for sh in s.shapes if sh.name == "pc:split")
+    x, y, w, h = _inches(pic)
+    assert pic.crop_left == pytest.approx(0) and pic.crop_right > 0.3
+    assert (w / h) == pytest.approx(3000 * (1 - pic.crop_right) / 1000, rel=1e-2)  # undistorted
+
+
+def test_split_footer_text_stays_clear_of_the_photo_on_the_text_side(d, tmp_path):
+    s, box = d.pattern("split", "Footer", _photo(tmp_path), side="left")
+    d.footer(s, "Event")
+    pic = next(sh for sh in s.shapes if sh.name == "pc:split")
+    left = next(sh for sh in s.shapes if sh.has_text_frame and sh.text_frame.text == "Event")
+    assert left.left + left.width * 0.5 < pic.left  # the short footer text itself sits on the text side
 
 
 @pytest.mark.parametrize("side", ["left", "right"])

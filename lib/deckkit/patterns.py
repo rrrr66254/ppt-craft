@@ -11,7 +11,9 @@ bleed-panel   full-bleed photo + opaque grid-aligned panel holding the title (an
 bleed-scrim   full-bleed photo + solid translucent scrim (alpha >= 0.35, planned from the pixels under the text);
               falls back to bleed-panel when contrast cannot be reached or there are > 15 words.
 suggest()     content-driven ranking of up to 2 patterns per slide (see its docstring).
-split         photo in its columns, text in the others (ratio = image:text columns, tall photo gets the narrow part).
+split         photo half-bleed (full height, to the slide edge) in its columns, title and text in the others
+              (ratio = image:text columns, tall photo gets the narrow part). fit="contain" keeps the picture inside
+              the content area. Put the footer on the text side: a page number at the right sits on the photo.
 inset         photo inside the margins with a required caption line (I13).
 strip         full-width band, at most 40% of the slide height.
 gallery       2-4 cells in one row, one crop ratio for all (hero is bigger, top-aligned), optional captions.
@@ -137,18 +139,18 @@ def bleed_scrim(d, title, path, *, focus=None, must_keep=None, side=None, words=
     elif plan["panel"]:
         d._warn("Text over image fails contrast; using bleed-panel.")
     else:
-        return _scrim_slide(d, title, path, plan, region, body, (x, ty, w, th), focus, must_keep)
+        return _scrim_slide(d, title, path, plan, body, (x, ty, w, th), focus, must_keep, side)
     return bleed_panel(d, title, path, focus=focus, must_keep=must_keep, side=side)
 
 
-def _scrim_slide(d, title, path, plan, region, body, title_box, focus, must_keep):
+def _scrim_slide(d, title, path, plan, body, title_box, focus, must_keep, side):
     x, ty, w, _ = title_box
     s = d.slide(title, box=title_box, color=plan["text"])
     pic = d.background(s, path, focus=focus, must_keep=must_keep, pattern="bleed-scrim")
     layers = [pic]
     if plan["alpha"]:
-        sx, sy = max(0, x - _PAD), max(0, ty - _PAD)
-        sbox = (sx, sy, min(d.W, x + w + _PAD) - sx, min(d.H, region[1] + region[3] + _PAD) - sy)
+        edge = x + w + _PAD if side == "left" else x - _PAD  # far edge of the band, from the text-side slide edge
+        sbox = (0, 0, edge, d.H) if side == "left" else (edge, 0, d.W - edge, d.H)
         layers.append(d.scrim(s, sbox, color="ink" if plan["text"] == "bg" else "bg", alpha=max(plan["alpha"], MIN_SCRIM)))
     _stack(d, s, layers)
     return _finish(d, s, body, plan["text"])
@@ -167,8 +169,13 @@ def split(d, title, path, *, focus=None, must_keep=None, side=None, ratio=(5, 7)
     top, bottom = d.content_top, d.content_bottom
     ix, iw = d.col(img_start, img_cols)
     tx, tw = d.col(text_start, text_cols)
-    s = d.slide(title)
-    pic = d.image(s, (ix, top, iw, bottom - top), path, fit=fit, focus=focus, must_keep=must_keep)
+    if fit == "cover":  # half-bleed: full slide height, from the image columns' grid edge to the slide edge
+        box = (0, 0, ix + iw, d.H) if side == "right" else (ix, 0, d.W - ix, d.H)
+        s = d.slide(title, box=(tx, *_title_y(d)[:1], tw, _title_y(d)[1]))  # the title never runs under the photo
+    else:
+        box = (ix, top, iw, bottom - top)
+        s = d.slide(title)
+    pic = d.image(s, box, path, fit=fit, focus=focus, must_keep=must_keep)
     if fit == "contain":  # a contained picture hugs the grid edge on its own side of the slide
         pic.left = Inches(ix + iw) - pic.width if side == "left" else Inches(ix)
     d._tag(pic, "split")
