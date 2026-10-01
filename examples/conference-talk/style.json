@@ -1,0 +1,62 @@
+{
+  "name": "keynote-type",
+  "mood": "Talk style centered on big type. One sentence per slide, lots of whitespace. Fits tech talks, conferences, and keynotes",
+  "canvas": {
+    "ratio": "16:9",
+    "margin": 0.8
+  },
+  "color": {
+    "bg": "#FFFFFF",
+    "ink": "#111111",
+    "muted": "#767676",
+    "accent": "#C23F51"
+  },
+  "font": {
+    "head": "Bahnschrift",
+    "body": "Bahnschrift",
+    "mono": "Consolas"
+  },
+  "scale": {
+    "head": 60,
+    "title": 34,
+    "governing": 22,
+    "body": 20,
+    "caption": 12,
+    "mono": 16
+  },
+  "rhythm": {
+    "line_height": 1.25,
+    "tracking_head": -0.025,
+    "tracking_body": -0.01
+  },
+  "cover": "type",
+  "structure": "assertion",
+  "layout": "statement",
+  "motifs": [
+    "One sentence per slide",
+    "Slides with a single big number",
+    "Code large in mono, line highlight in accent"
+  ],
+  "avoid": [
+    "L1",
+    "L4",
+    "I1",
+    "C4"
+  ],
+  "imagery": {
+    "patterns": [
+      "bleed-scrim",
+      "bleed-panel",
+      "split",
+      "inset",
+      "annotated",
+      "figure",
+      "type-only"
+    ],
+    "treatment": "none",
+    "harmonize": true,
+    "texture": null,
+    "max_bleed": 3
+  },
+  "source": "preset:keynote-type"
+}

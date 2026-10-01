@@ -6,3 +6,6 @@ decks/
 *.pptx.bak
 .DS_Store
 Thumbs.db
+examples/*/out.pptx
+examples/*/lint.json
+examples/*/renders/
