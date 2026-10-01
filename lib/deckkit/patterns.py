@@ -194,8 +194,6 @@ def inset(d, title, path, *, caption, focus=None, must_keep=None, fit="contain",
     bottom = d.content_bottom - _CAPTION_H - 0.1
     s = d.slide(title)
     pic = d.image(s, (x, top, w, bottom - top), path, fit=fit, focus=focus, must_keep=must_keep)
-    if fit == "contain":
-        pic.left = Inches(x)  # keep the picture on the grid edge, caption aligned with it
     d._tag(pic, "inset")
     cy = (pic.top + pic.height) / 914400 + 0.1
     d.text(s, (x, cy, w, _CAPTION_H), caption, "caption", color="muted")

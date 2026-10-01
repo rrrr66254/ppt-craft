@@ -23,7 +23,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 from PIL import Image  # noqa: E402
-from pptx.util import Inches  # noqa: E402
 
 from deckkit import Deck, load_style  # noqa: E402
 from deckkit.patterns import suggest  # noqa: E402
@@ -256,7 +255,6 @@ def _image_slide(d, s, labels):
         x, w = d.col(0, 8)
         top, bottom = d.content_top, d.content_bottom - CAPTION_H - 0.1
         pic = d._tag(d.image(slide, (x, top, w, bottom - top), s["image"], fit="contain"), "figure")
-        pic.left = Inches(x)
         d.text(slide, (x, (pic.top + pic.height) / 914400 + 0.1, w, CAPTION_H), caption, "caption", color="muted")
         x, w = d.col(8, 4)
         box = (x, top, w, bottom - top)

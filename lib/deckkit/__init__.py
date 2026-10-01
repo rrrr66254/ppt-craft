@@ -271,7 +271,7 @@ class Deck:
         """Place an image with PowerPoint native cropping (original preserved, can be re-cropped in PowerPoint).
 
         fit="cover": crop to fill the slot (around focus). If must_keep cannot be honored, fall back to contain.
-        fit="contain": no cropping, fit inside the slot (diagrams, logos).
+        fit="contain": no cropping, fit inside the slot (diagrams, logos), on the slot's left edge.
         """
         path = Path(path)
         with Image.open(path) as im:
@@ -286,7 +286,7 @@ class Deck:
                 self._warn(f"{path.name}: the must_keep region cannot be kept at the {w:.1f}x{h:.1f}in slot ratio; fell back to contain.")
                 fit, crop = "contain", (0.0, 0.0, 0.0, 0.0)
         if fit == "contain":
-            x, y, w, h = contain_box(iw, ih, box)
+            _, y, w, h = contain_box(iw, ih, box)  # left on the grid edge (L4), centered vertically
         pic = slide.shapes.add_picture(str(path), Inches(x), Inches(y), Inches(w), Inches(h))
         pic.crop_left, pic.crop_top, pic.crop_right, pic.crop_bottom = crop
         dpi = effective_dpi(iw, crop, w)

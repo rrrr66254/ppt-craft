@@ -75,6 +75,14 @@ def test_image_must_keep_falls_back_to_contain(tmp_path):
     assert pic.crop_left == 0 and abs(pic.width.inches - 2) < 0.01 and abs(pic.height.inches - 1) < 0.01
 
 
+def test_contained_image_sits_on_the_left_grid_edge(tmp_path):
+    img = tmp_path / "d.png"
+    Image.new("RGB", (400, 200), "red").save(img)
+    d = Deck(STYLE)
+    pic = d.image(d.slide(), (1, 1, 6, 2), img, fit="contain")  # height-limited: 4in wide inside a 6in box
+    assert abs(pic.left.inches - 1) < 0.01 and abs(pic.width.inches - 4) < 0.01
+
+
 def test_low_dpi_warns(tmp_path):
     img = tmp_path / "small.png"
     Image.new("RGB", (100, 100), "blue").save(img)
