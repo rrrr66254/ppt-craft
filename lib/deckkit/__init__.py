@@ -91,6 +91,7 @@ class Deck:
         """New slide. The title goes into the title placeholder (accessibility, outline view), pinned to title_box (or box)."""
         self._check(role=role, anchor=anchor)
         self._rgb(bg), self._rgb(color)
+        self.text_color = "ink"
         s = self.prs.slides.add_slide(self.prs.slide_layouts[_TITLE_ONLY])
         fill = s.background.fill
         fill.solid()
@@ -149,7 +150,8 @@ class Deck:
                 self._warn(f"{Path(path).name}: only {im.width}px wide for a full-bleed background; use split or inset instead.")
         pic = self.image(slide, (0, 0, self.W, self.H), path, focus=focus, must_keep=must_keep)
         self.send_to_back(slide, pic)
-        self._bleeds += 1
+        if pattern.startswith("bleed"):
+            self._bleeds += 1
         limit = self.style["imagery"]["max_bleed"]
         if self._bleeds > limit:
             self._warn(f"Full-bleed slides exceed imagery.max_bleed ({limit}) - L24.")

@@ -2,7 +2,9 @@
 
 content_box is where the caller writes body text (None when the pattern leaves no room). Rules:
 - A pattern missing from style.imagery.patterns raises ValueError. Text goes opposite the image focus.
-- All x positions come from Deck.col(). Image shapes are named pc:<pattern>, panels and scrims pc:panel / pc:scrim.
+- All x positions come from Deck.col(). Image shapes are named pc:<pattern> (backgrounds pc:bleed-panel / pc:bleed-scrim),
+  panels and scrims pc:panel / pc:scrim.
+- All helpers take focus / must_keep / words (ignored where it makes no difference), so suggest() results are interchangeable.
 - d.text_color is set to the color name ("ink" or "bg") for body text on the slide just built.
 
 bleed-panel   full-bleed photo + opaque grid-aligned panel holding the title (and body).
@@ -12,9 +14,12 @@ suggest()     content-driven ranking of up to 2 patterns per slide (see its docs
 split         photo in its columns, text in the others (ratio = image:text columns, tall photo gets the narrow part).
 inset         photo inside the margins with a required caption line (I13).
 strip         full-width band, at most 40% of the slide height.
-gallery       2-4 equal cells in one row, optional wider hero, optional captions.
+gallery       2-4 cells in one row, one crop ratio for all (hero is bigger, top-aligned), optional captions.
 """
-from PIL import Image, ImageOps
+from pathlib import Path
+
+from PIL import Image
+from pptx.util import Inches
 
 from . import legibility as L
 from .crop import cover_crop
@@ -55,18 +60,29 @@ def _stack(d, slide, bottom_up):
 
 
 def _plan_text(d, path, region, focus, must_keep, size_pt):
-    """legibility.plan for the title region over the placed picture (EXIF-normalized). None if it cannot be planned."""
+    """legibility.plan for the title region over the placed picture. PowerPoint draws the raw pixel orientation
+    (EXIF is ignored), so the raw image is sampled. Returns (plan, problem); problem is None, "must_keep" or "unanalyzable"."""
     color = d.style["color"]
-    with Image.open(path) as raw:
-        im = ImageOps.exif_transpose(raw)
+    with Image.open(path) as im:
         crop = cover_crop(im.width, im.height, d.W, d.H, focus, must_keep)
         if crop is None:
-            return None
+            return None, "must_keep"
         box_px = L.slide_box_to_image_px(region, (0, 0, d.W, d.H), im.size, crop)
         try:
-            return L.plan(L.region_pixels(im, box_px), color["ink"], color["bg"], size_pt)
+            return L.plan(L.region_pixels(im, box_px), color["ink"], color["bg"], size_pt), None
         except ValueError:
-            return None
+            return None, "unanalyzable"
+
+
+def _per_image(value, n, name):
+    """focus / must_keep for a gallery: None, one region for all images, or one entry (region or None) per image."""
+    if value is None:
+        return [None] * n
+    if len(value) == 4 and all(isinstance(v, (int, float)) for v in value):
+        return [value] * n
+    if len(value) != n:
+        raise ValueError(f"{name} must be one region or one entry per image ({n}), got {len(value)}")
+    return list(value)
 
 
 def _finish(d, slide, box, text_color="ink"):
@@ -74,7 +90,8 @@ def _finish(d, slide, box, text_color="ink"):
     return slide, box
 
 
-def bleed_panel(d, title, path, *, focus=None, must_keep=None, side=None, cols=5):
+def bleed_panel(d, title, path, *, focus=None, must_keep=None, side=None, cols=5, words=0):
+    """words is accepted for interchangeability and ignored: the opaque panel always holds the text."""
     _allow(d, "bleed-panel")
     side = _side(side, focus)
     if not 2 <= cols <= 8:
@@ -84,7 +101,7 @@ def bleed_panel(d, title, path, *, focus=None, must_keep=None, side=None, cols=5
     ty, th = _title_y(d)
     th *= 1.5  # a narrow panel wraps the title onto more lines
     s = d.slide(title, box=(x, ty, w, th))
-    pic = d.background(s, path, focus=focus, must_keep=must_keep)
+    pic = d.background(s, path, focus=focus, must_keep=must_keep, pattern="bleed-panel")
     if side == "left":
         edge = sum(d.col(cols, 1))                  # the panel reaches one column past the text
         panel_box = (0, 0, edge, d.H)
@@ -105,10 +122,14 @@ def bleed_scrim(d, title, path, *, focus=None, must_keep=None, side=None, words=
     body = (x, d.content_top, w, _BODY_H) if words else None
     region = (x, ty, w, (body[1] + body[3] if body else ty + th) - ty)
     size = d.style["scale"]["body" if words else "title"]
-    plan = _plan_text(d, path, region, focus, must_keep, size)
+    plan, problem = _plan_text(d, path, region, focus, must_keep, size)
     if words > MAX_WORDS_ON_PHOTO:
         d._warn(f"{words} words over a photo is too much text; using bleed-panel.")
-    elif plan is None or plan["panel"]:
+    elif problem == "must_keep":
+        d._warn(f"{Path(path).name}: the must_keep region cannot be kept at the full-bleed crop; using bleed-panel.")
+    elif problem:
+        d._warn("Text over image could not be analyzed; using bleed-panel.")
+    elif plan["panel"]:
         d._warn("Text over image fails contrast; using bleed-panel.")
     else:
         return _scrim_slide(d, title, path, plan, region, body, (x, ty, w, th), focus, must_keep)
@@ -118,7 +139,7 @@ def bleed_scrim(d, title, path, *, focus=None, must_keep=None, side=None, words=
 def _scrim_slide(d, title, path, plan, region, body, title_box, focus, must_keep):
     x, ty, w, _ = title_box
     s = d.slide(title, box=title_box, color=plan["text"])
-    pic = d.background(s, path, focus=focus, must_keep=must_keep)
+    pic = d.background(s, path, focus=focus, must_keep=must_keep, pattern="bleed-scrim")
     layers = [pic]
     if plan["alpha"]:
         sx, sy = max(0, x - _PAD), max(0, ty - _PAD)
@@ -128,8 +149,8 @@ def _scrim_slide(d, title, path, plan, region, body, title_box, focus, must_keep
     return _finish(d, s, body, plan["text"])
 
 
-def split(d, title, path, *, focus=None, must_keep=None, side=None, ratio=(5, 7), fit="cover"):
-    """ratio = (image columns, text columns), summing to 12. `side` is the text side."""
+def split(d, title, path, *, focus=None, must_keep=None, side=None, ratio=(5, 7), fit="cover", words=0):
+    """ratio = (image columns, text columns), summing to 12. `side` is the text side. words is ignored."""
     _allow(d, "split")
     side = _side(side, focus)
     if len(ratio) != 2 or sum(ratio) != 12 or min(ratio) < 1:
@@ -142,11 +163,15 @@ def split(d, title, path, *, focus=None, must_keep=None, side=None, ratio=(5, 7)
     ix, iw = d.col(img_start, img_cols)
     tx, tw = d.col(text_start, text_cols)
     s = d.slide(title)
-    d._tag(d.image(s, (ix, top, iw, bottom - top), path, fit=fit, focus=focus, must_keep=must_keep), "split")
+    pic = d.image(s, (ix, top, iw, bottom - top), path, fit=fit, focus=focus, must_keep=must_keep)
+    if fit == "contain":  # a contained picture hugs the grid edge on its own side of the slide
+        pic.left = Inches(ix + iw) - pic.width if side == "left" else Inches(ix)
+    d._tag(pic, "split")
     return _finish(d, s, (tx, top, tw, bottom - top))
 
 
-def inset(d, title, path, *, caption, focus=None, fit="contain", span=8):
+def inset(d, title, path, *, caption, focus=None, must_keep=None, fit="contain", span=8, words=0):
+    """words is ignored: the free columns beside the picture are returned as the content box."""
     _allow(d, "inset")
     if not (caption and str(caption).strip()):
         raise ValueError("inset needs a caption with provenance: source, date, place (I13)")
@@ -156,9 +181,9 @@ def inset(d, title, path, *, caption, focus=None, fit="contain", span=8):
     top = d.content_top
     bottom = d.content_bottom - _CAPTION_H - 0.1
     s = d.slide(title)
-    pic = d.image(s, (x, top, w, bottom - top), path, fit=fit, focus=focus)
+    pic = d.image(s, (x, top, w, bottom - top), path, fit=fit, focus=focus, must_keep=must_keep)
     if fit == "contain":
-        pic.left = round(x * 914400)  # keep the picture on the grid edge, caption aligned with it
+        pic.left = Inches(x)  # keep the picture on the grid edge, caption aligned with it
     d._tag(pic, "inset")
     cy = (pic.top + pic.height) / 914400 + 0.1
     d.text(s, (x, cy, w, _CAPTION_H), caption, "caption", color="muted")
@@ -168,7 +193,8 @@ def inset(d, title, path, *, caption, focus=None, fit="contain", span=8):
     return _finish(d, s, (rx, top, rw, bottom - top))
 
 
-def strip(d, title, path, *, focus=None, position="bottom", height_ratio=0.35):
+def strip(d, title, path, *, focus=None, must_keep=None, position="bottom", height_ratio=0.35, words=0):
+    """words is ignored. A bottom band ends at content_bottom, above the footer zone."""
     _allow(d, "strip")
     if not 0 < height_ratio <= 0.4:
         raise ValueError(f"height_ratio must be in (0, 0.4] (got: {height_ratio})")
@@ -178,18 +204,20 @@ def strip(d, title, path, *, focus=None, position="bottom", height_ratio=0.35):
     ty, th = _title_y(d)
     if position == "bottom":
         s = d.slide(title)
-        y, top, bottom = d.H - h, d.content_top, d.H - h - 0.3
+        y = d.content_bottom - h
+        top, bottom = d.content_top, y - 0.3
     else:
         ty = h + 0.3
         s = d.slide(title, box=(d.m, ty, d.W - 2 * d.m, th))
         y, top, bottom = 0, ty + th + 0.3, d.content_bottom
-    d._tag(d.image(s, (0, y, d.W, h), path, focus=focus), "strip")
+    d._tag(d.image(s, (0, y, d.W, h), path, focus=focus, must_keep=must_keep), "strip")
     x, w = d.col(0, 12)
     return _finish(d, s, (x, top, w, bottom - top))
 
 
-def gallery(d, title, paths, *, captions=None, hero=None):
-    """2-4 images as N cells in one row (same crop ratio, same height). hero = index of the wider cell."""
+def gallery(d, title, paths, *, captions=None, hero=None, focus=None, must_keep=None, words=0):
+    """2-4 images as N cells in one row, one crop ratio for all, top-aligned. hero = index of the bigger cell.
+    focus / must_keep: one region for all images or a list with one entry per image. words is ignored."""
     _allow(d, "gallery")
     paths = list(paths)
     n = len(paths)
@@ -203,16 +231,19 @@ def gallery(d, title, paths, *, captions=None, hero=None):
     if hero is not None:
         wide, narrow = _HERO_SPANS[n]
         spans = [wide if i == hero else narrow for i in range(n)]
+    focus, must_keep = _per_image(focus, n, "focus"), _per_image(must_keep, n, "must_keep")
     s = d.slide(title)
     top, avail = d.content_top, d.content_bottom - d.content_top - _CAPTION_H - 0.1
-    h = min(avail, d.col(0, min(spans))[1] / 1.2)
-    start = 0
-    for i, (path, span) in enumerate(zip(paths, spans)):
-        x, w = d.col(start, span)
-        d._tag(d.image(s, (x, top, w, h), path), "gallery")
+    cells, start = [], 0
+    for span in spans:
+        cells.append(d.col(start, span))
+        start += span
+    ratio = max(1.2, max(w for _, w in cells) / avail)  # one crop ratio; the widest cell just fits the height
+    for i, (path, (x, w)) in enumerate(zip(paths, cells)):
+        h = w / ratio
+        d._tag(d.image(s, (x, top, w, h), path, focus=focus[i], must_keep=must_keep[i]), "gallery")
         if captions:
             d.text(s, (x, top + h + 0.1, w, _CAPTION_H), captions[i], "caption", color="muted")
-        start += span
     if not captions:
         d._warn("Gallery without captions: add source/date/place for each image (I13).")
     return _finish(d, s, None)
@@ -256,9 +287,10 @@ def suggest(image, role, words=0, n_images=None, prev=(), imagery=None, bleed_us
     if kind == "screenshot":
         add("annotated", "real screen as evidence (H3)")
         add("inset", "screenshot with caption")
-    if n >= 2:
+    crops = kind not in ("diagram", "logo")  # split / gallery / strip cover-crop the picture
+    if n >= 2 and crops:
         add("gallery", f"{n} comparable images")
-    if aspect >= 3:
+    if aspect >= 3 and crops:
         add("strip", f"panoramic {aspect:.1f}:1")
     if role in ("cover", "section", "statement") and kind not in ("diagram", "logo", "screenshot"):
         if bleed_used < imagery.get("max_bleed", 3):
@@ -268,7 +300,8 @@ def suggest(image, role, words=0, n_images=None, prev=(), imagery=None, bleed_us
                 add("bleed-scrim", f"{role}, short text over the quiet side", side=side)
                 add("bleed-panel", "fallback if contrast fails", side=side)
     if role in ("evidence", "detail", "comparison", "cover", "section", "statement"):
-        add("split", "photo as evidence beside the claim", side=side, ratio=(5, 7) if aspect >= 1 else (4, 8))
+        if crops:
+            add("split", "photo as evidence beside the claim", side=side, ratio=(5, 7) if aspect >= 1 else (4, 8))
         add("inset", "supporting photo with caption")
     add("type-only", "fallback")
     return result()
