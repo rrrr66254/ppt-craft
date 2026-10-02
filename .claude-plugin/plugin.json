@@ -1,6 +1,6 @@
 {
   "name": "ppt-craft",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Make PowerPoint decks that don't look AI-generated: pull style from references, pick from rendered candidates, build the .pptx, and re-review it from rendered captures.",
   "author": {
     "name": "rrrr66254",

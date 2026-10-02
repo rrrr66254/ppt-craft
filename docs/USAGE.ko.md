@@ -50,7 +50,7 @@ claude plugin details ppt-craft
 git 태그를 붙여 마켓플레이스를 추가합니다.
 
 ```bash
-claude plugin marketplace add rrrr66254/ppt-craft#v0.2.0
+claude plugin marketplace add rrrr66254/ppt-craft#v0.2.1
 ```
 
 ### 팀이나 저장소 전체에 설치
@@ -94,10 +94,10 @@ claude plugin marketplace remove ppt-craft
 - **Python 패키지:** python-pptx, Pillow, resvg-py (`requirements.txt`). 스크립트가 `ModuleNotFoundError`로 멈추면 Claude가 동의를 받은 뒤 `pip install -r "<플러그인 폴더>/requirements.txt"`를 실행합니다. 직접 설치하려면 `python`이 가리키는 그 Python에 설치하세요.
 
   ```bash
-  python -m pip install -r ~/.claude/plugins/cache/ppt-craft/ppt-craft/0.2.0/requirements.txt
+  python -m pip install -r ~/.claude/plugins/cache/ppt-craft/ppt-craft/<version>/requirements.txt
   ```
 
-  설치된 사본은 `~/.claude/plugins/cache/<마켓플레이스>/<플러그인>/<버전>/`에 있습니다(Windows에서는 `%USERPROFILE%\.claude\plugins\cache\ppt-craft\ppt-craft\0.2.0\`). 클론으로 쓰는 경우에는 클론 폴더의 `requirements.txt`를 쓰면 됩니다.
+  설치된 사본은 `~/.claude/plugins/cache/<마켓플레이스>/<플러그인>/<버전>/`에 있습니다(Windows에서는 `%USERPROFILE%\.claude\plugins\cache\ppt-craft\ppt-craft\<version>\`). 클론으로 쓰는 경우에는 클론 폴더의 `requirements.txt`를 쓰면 됩니다.
 - **렌더러.** 스타일 후보 비교와 검수에는 슬라이드를 이미지로 렌더링해야 합니다. 새 자료를 만들 때 인터뷰 전에 먼저 확인하고, 렌더러가 없으면 설치 방법을 알려 주고 멈춥니다.
   - Windows: Microsoft PowerPoint가 설치되어 있으면 자동으로 씁니다.
   - 그 밖의 경우(macOS, Linux 포함): LibreOffice와 PDF→PNG 변환기(poppler의 `pdftoppm` 또는 `pip install pymupdf`)가 필요합니다.

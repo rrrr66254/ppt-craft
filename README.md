@@ -92,11 +92,36 @@ The stage skills (`deck-brief`, `deck-style`, `deck-build`) can be run on their 
 
 Set keys as environment variables and restart Claude Code. Never paste keys into the chat.
 
-## Privacy
+## Where it runs
 
-Nothing goes over the network until you agree, which is asked once per session.
+ppt-craft is built for Claude Code (terminal, IDE extensions, desktop app Code tab). It needs a local Python 3.10+ and a slide renderer (PowerPoint on Windows, or LibreOffice). In claude.ai chat and Cowork the skills load, but without Python and a renderer the deck skill stops at its first check and shows install instructions, and chat does not load the reviewer agent.
 
-When you allow it, your search words and image-generation prompts are sent to the services listed above. Keep confidential text out of them. Without keys, image prompts go to AI Horde, which is run by volunteers.
+## What it runs, sends and stores
+
+Everything below is visible in `scripts/` and `skills/`. Nothing is minified or downloaded and executed.
+
+**Runs on your machine**
+- Python scripts from this plugin (`scripts/*.py`, `lib/deckkit/`), started by the skills.
+- Your deck's own `build.py`, which Claude writes in `decks/<slug>/`.
+- PowerPoint through COM automation on Windows (PowerShell, opening a temporary copy of the deck; PowerPoint is closed only if the script started it), or LibreOffice `soffice` in headless mode, to export slide images.
+- `pip install -r requirements.txt` (python-pptx, Pillow, resvg-py), only after you agree, when a module is missing.
+
+**Network: off until you agree**, asked once per session. If you decline, only your own images and installed fonts are used. When you agree, only these requests are made:
+
+| Purpose | Destination | What is sent |
+|---|---|---|
+| Photo search and download | `api.openverse.org`, `commons.wikimedia.org` and the image hosts they link to (e.g. `upload.wikimedia.org`); `api.pexels.com`, `pixabay.com` only if you set their keys | Your search words; the key for Pexels/Pixabay |
+| AI image generation | `api.cloudflare.com`, `gen.pollinations.ai`, `huggingface.co` / `router.huggingface.co` only if you set their keys; otherwise `aihorde.net` (volunteer-run) | Your image prompt and size; the key for the provider you set |
+| Icons | `api.iconify.design` | Your search words and the icon name |
+| Fonts | `fonts.google.com` and the font file URLs it returns; `api.github.com` and GitHub release downloads | The font family name |
+
+Keys are read from environment variables you set yourself (`PEXELS_API_KEY`, `PIXABAY_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `POLLINATIONS_API_KEY`, `HF_TOKEN`), sent only to that provider, and never printed or written to files. Keep confidential text out of search words and prompts. Requests carry the User-Agent `ppt-craft/<version>`. There is no telemetry and no other server.
+
+**Writes on your machine**
+- `decks/<slug>/` in your current folder: brief, style, outline, `build.py`, downloaded and treated assets, renders, `out.pptx`.
+- The plugin data folder (`~/.claude/plugins/data/ppt-craft-ppt-craft/`): your remembered font choice and saved styles.
+- Fonts, only when you ask to install one: your per-user font folder (Windows: `%LOCALAPPDATA%\Microsoft\Windows\Fonts` plus its per-user registry entry; macOS: `~/Library/Fonts`; Linux: `~/.local/share/fonts`). No admin rights are used.
+- Temporary files in the system temp folder during rendering, removed afterwards.
 
 ## License
 
@@ -114,6 +139,8 @@ AI가 만든 티가 나지 않는 PPT(.pptx)를 만드는 Claude Code 플러그�
 - **검수:** 별도의 검수 에이전트가 캡처를 보고 다시 확인합니다.
 - **사용:** `/ppt-craft:deck 주제`로 시작합니다. 한국어로 요청하면 한국어로 답합니다. 중간에 멈췄다면 `/ppt-craft:deck decks/<slug>`로 이어서 합니다.
 - **기존 자료 검수:** `/ppt-craft:deck-review 파일.pptx`
+- **네트워크와 저장:** 네트워크는 세션마다 한 번 동의를 받은 뒤에만 씁니다. 접속하는 곳과 보내는 내용, 내 PC에 저장되는 위치는 위의 "What it runs, sends and stores"에 모두 적혀 있습니다. 텔레메트리는 없습니다.
+- **지원 환경:** Claude Code 기준입니다. claude.ai 채팅과 Cowork에서는 로컬 Python과 렌더러가 없으면 설치 안내를 보여 주고 멈춥니다.
 
 설치:
 

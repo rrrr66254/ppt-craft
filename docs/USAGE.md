@@ -50,7 +50,7 @@ claude plugin details ppt-craft
 Add the marketplace at a git tag:
 
 ```bash
-claude plugin marketplace add rrrr66254/ppt-craft#v0.2.0
+claude plugin marketplace add rrrr66254/ppt-craft#v0.2.1
 ```
 
 ### Install for a whole team or repository
@@ -94,10 +94,10 @@ The first removes the plugin. The second removes the marketplace and uninstalls 
 - **Python packages:** python-pptx, Pillow, resvg-py (`requirements.txt`). When a script fails with `ModuleNotFoundError`, Claude asks for your consent and runs `pip install -r "<plugin folder>/requirements.txt"`. To do it yourself, install into the same Python that `python` runs:
 
   ```bash
-  python -m pip install -r ~/.claude/plugins/cache/ppt-craft/ppt-craft/0.2.0/requirements.txt
+  python -m pip install -r ~/.claude/plugins/cache/ppt-craft/ppt-craft/<version>/requirements.txt
   ```
 
-  The installed copy lives at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` (on Windows, `%USERPROFILE%\.claude\plugins\cache\ppt-craft\ppt-craft\0.2.0\`). From a clone, use the clone's `requirements.txt`.
+  The installed copy lives at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` (on Windows, `%USERPROFILE%\.claude\plugins\cache\ppt-craft\ppt-craft\<version>\`). From a clone, use the clone's `requirements.txt`.
 - **A renderer.** Style candidates and review need rendered slide images. A new deck checks this before the interview starts and stops with install instructions if none is found.
   - Windows: Microsoft PowerPoint, used automatically when installed.
   - Otherwise (and on macOS and Linux): LibreOffice plus a PDF-to-PNG converter, either poppler (`pdftoppm`) or `pip install pymupdf`.

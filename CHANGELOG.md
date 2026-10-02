@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- README: "Where it runs" and "What it runs, sends and stores" sections listing every network destination, what is sent, and what is written locally (directory submission prep).
+- Removed `.gitattributes` (content-rewriting attributes are not accepted by the plugin directory's validation).
+
 ## 0.2.0
 
 Imagery
